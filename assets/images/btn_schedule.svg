@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Layer_2" data-name="Layer 2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 118.41 151.25">
+  <defs>
+    <style>
+      .cls-1 {
+        stroke-width: 8.25px;
+      }
+
+      .cls-1, .cls-2 {
+        fill: #f2f2f2;
+        stroke: #003277;
+        stroke-miterlimit: 10;
+      }
+
+      .cls-2 {
+        stroke-width: 16.5px;
+      }
+
+      .cls-3 {
+        fill: #0071bc;
+      }
+    </style>
+  </defs>
+  <g id="Button">
+    <ellipse class="cls-2" cx="59.2" cy="88.03" rx="50.96" ry="54.97"/>
+    <rect class="cls-3" x="34.98" width="45.11" height="38.28" rx="14.47" ry="14.47"/>
+    <polyline class="cls-1" points="89.65 88.03 59.2 88.03 59.82 56.58"/>
+  </g>
+</svg>
