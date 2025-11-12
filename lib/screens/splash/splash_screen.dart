@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'dart:async';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../../config/routes.dart';
-import '../../config/constants.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -15,12 +14,13 @@ class _SplashScreenState extends State<SplashScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
+  late Animation<double> _scaleAnimation;
 
   @override
   void initState() {
     super.initState();
 
-    // Setup fade animation
+    // ✅ Setup animations
     _animationController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1500),
@@ -29,22 +29,32 @@ class _SplashScreenState extends State<SplashScreen>
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
         parent: _animationController,
-        curve: Curves.easeIn,
+        curve: const Interval(0.0, 0.6, curve: Curves.easeIn),
       ),
     );
 
+    _scaleAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _animationController,
+        curve: const Interval(0.0, 0.6, curve: Curves.easeOutBack),
+      ),
+    );
+
+    // ✅ Start animation
     _animationController.forward();
 
-    // Navigate after splash duration
-    // _navigateToNext();
+    // ✅ Navigate after splash
+    _navigateToHome();
   }
 
-  void _navigateToNext() {
-    Timer(AppConstants.splashDuration, () {
-      if (mounted) {
-        Navigator.of(context).pushReplacementNamed(AppRoutes.home);
-      }
-    });
+  Future<void> _navigateToHome() async {
+    // Wait for animation + slight delay
+    await Future.delayed(const Duration(milliseconds: 2500));
+
+    if (!mounted) return;
+
+    // ✅ Navigate to home (MQTT will connect there)
+    Navigator.pushReplacementNamed(context, AppRoutes.home);
   }
 
   @override
@@ -56,90 +66,64 @@ class _SplashScreenState extends State<SplashScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        width: double.infinity,
-        height: double.infinity,
-        decoration: const BoxDecoration(
-          // Gradient blue background sesuai gambar
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Color(0xFF29B6F6), // Light blue
-              Color(0xFF0288D1), // Darker blue
-            ],
-          ),
-        ),
-        child: FadeTransition(
-          opacity: _fadeAnimation,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              // Spacer untuk push content ke tengah
-              const Spacer(flex: 2),
+      backgroundColor: const Color(0xFF29B6F6),
+      body: Stack(
+        children: [
+          // ✅ Logo & Text (Centered with offset up)
+          Center(
+            child: FadeTransition(
+              opacity: _fadeAnimation,
+              child: ScaleTransition(
+                scale: _scaleAnimation,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Push content up
+                    const SizedBox(
+                        height: 0), // Adjust this for more/less space
 
-              // Logo SVG
-              SvgPicture.asset(
-                'assets/images/logo_tumbuhkan.svg',
-                width: 200,
-                height: 200,
-                colorFilter: const ColorFilter.mode(
-                  Colors.white,
-                  BlendMode.srcIn,
-                ),
-                placeholderBuilder: (context) => const SizedBox(
-                  width: 200,
-                  height: 200,
-                  child: Center(
-                    child: CircularProgressIndicator(
-                      color: Colors.white,
+                    // Logo
+                    SizedBox(
+                      width: 140,
+                      height: 140,
+                      child: SvgPicture.asset(
+                        'assets/images/logo.svg',
+                        fit: BoxFit.contain,
+                        placeholderBuilder: (context) => const Icon(
+                          Icons.eco,
+                          size: 80,
+                          color: Colors.white,
+                        ),
+                      ),
                     ),
-                  ),
+
+                    const SizedBox(height: 24),
+                  ],
                 ),
               ),
+            ),
+          ),
 
-              const SizedBox(height: 30),
-
-              // App Name
-              const Text(
-                'Tumbuhkan',
-                style: TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                  letterSpacing: 2,
-                ),
-              ),
-
-              const SizedBox(height: 10),
-
-              // Tagline
-              const Text(
-                'Smart Hydroponics by PlantIOT',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.white,
-                  letterSpacing: 0.5,
-                ),
-              ),
-
-              const Spacer(flex: 2),
-
-              // Loading Indicator
-              const Padding(
-                padding: EdgeInsets.only(bottom: 50),
+          // ✅ Loading Indicator (Absolute bottom)
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 80, // Distance from bottom
+            child: FadeTransition(
+              opacity: _fadeAnimation,
+              child: const Center(
                 child: SizedBox(
                   width: 40,
                   height: 40,
                   child: CircularProgressIndicator(
-                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                     strokeWidth: 3,
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                   ),
                 ),
               ),
-            ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }

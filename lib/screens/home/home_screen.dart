@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:flutter_svg/flutter_svg.dart'; // 🆕 Import SVG
 import '../../services/mqtt_service.dart';
+import '../../widgets/home/connection_status_indicator.dart';
+import '../../widgets/home/bottom_nav_bar.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -11,71 +12,64 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  int _selectedIndex = 1; // Default: Home tab (middle)
+  int _selectedIndex = 1;
+  bool _isInitialized = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeMqtt();
+  }
+
+  Future<void> _initializeMqtt() async {
+    await Future.delayed(const Duration(milliseconds: 100));
+    if (!mounted) return;
+
+    setState(() {
+      _isInitialized = true;
+    });
+
+    await Future.delayed(const Duration(seconds: 1));
+    if (!mounted) return;
+
+    final mqtt = Provider.of<MqttService>(context, listen: false);
+    mqtt.connect();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final mqttService = Provider.of<MqttService>(context);
+    final mqtt = Provider.of<MqttService>(context);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFE3F2FD), // Light blue background
+      backgroundColor: const Color(0xFFF5F5F5),
       body: SafeArea(
         child: Column(
           children: [
-            // ============================================
-            // Header Section
-            // ============================================
-            _buildHeader(context, mqttService),
-
-            // ============================================
-            // Main Content (Scrollable)
-            // ============================================
+            _buildHeader(mqtt),
             Expanded(
-              child: SingleChildScrollView(
-                child: Column(
-                  children: [
-                    const SizedBox(height: 20),
-
-                    // Sensor Values dengan Progress Bar
-                    _buildSensorSection(mqttService),
-
-                    const SizedBox(height: 30),
-
-                    // Temperature Display (Big)
-                    _buildTemperatureDisplay(mqttService),
-
-                    const SizedBox(height: 30),
-
-                    // Action Buttons
-                    _buildActionButtons(mqttService),
-
-                    const SizedBox(height: 40),
-
-                    // Mascot Character
-                    _buildMascotSection(),
-
-                    const SizedBox(height: 20),
-                  ],
-                ),
-              ),
+              child: _isInitialized ? _buildDashboard(mqtt) : _buildLoading(),
             ),
           ],
         ),
       ),
-
-      // ============================================
-      // Bottom Navigation Bar
-      // ============================================
-      bottomNavigationBar: _buildBottomNavBar(),
+      bottomNavigationBar: CustomBottomNavBar(
+        currentIndex: _selectedIndex,
+        onTap: (index) {
+          setState(() {
+            _selectedIndex = index;
+          });
+          _handleNavigation(index); // Handle navigation
+        },
+      ),
     );
   }
 
   // ============================================
-  // Header dengan Logo + Icons
+  // Header
   // ============================================
-  Widget _buildHeader(BuildContext context, MqttService mqtt) {
+  Widget _buildHeader(MqttService mqtt) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
         boxShadow: [
@@ -86,498 +80,319 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          // Logo Tumbuhkan
-          Row(
-            children: [
-              SvgPicture.asset(
-                'assets/images/logo_tumbuhkan.svg',
-                height: 40,
-                // Fallback jika SVG error
-                placeholderBuilder: (context) => const Icon(
-                  Icons.eco,
-                  color: Color(0xFF2E7D32),
-                  size: 40,
-                ),
-              ),
-              const SizedBox(width: 10),
-              const Text(
-                'Tumbuhkan',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF2E7D32),
-                ),
-              ),
-            ],
-          ),
-
-          // Right Icons
-          Row(
-            children: [
-              // Settings Icon
-              IconButton(
-                icon: SvgPicture.asset(
-                  'assets/images/btn_setting.svg',
-                  height: 24,
-                  colorFilter: const ColorFilter.mode(
-                    Color(0xFF1976D2),
-                    BlendMode.srcIn,
-                  ),
-                ),
-                onPressed: () {
-                  _showSnackBar(context, 'Settings coming soon');
-                },
-              ),
-
-              // Schedule Icon
-              IconButton(
-                icon: SvgPicture.asset(
-                  'assets/images/btn_schedule.svg',
-                  height: 24,
-                  colorFilter: const ColorFilter.mode(
-                    Color(0xFF1976D2),
-                    BlendMode.srcIn,
-                  ),
-                ),
-                onPressed: () {
-                  _showSnackBar(context, 'Schedule coming soon');
-                },
-              ),
-
-              // Logs Icon
-              IconButton(
-                icon: SvgPicture.asset(
-                  'assets/images/btn_log.svg',
-                  height: 24,
-                  colorFilter: const ColorFilter.mode(
-                    Color(0xFF1976D2),
-                    BlendMode.srcIn,
-                  ),
-                ),
-                onPressed: () {
-                  _showSnackBar(context, 'Logs coming soon');
-                },
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ============================================
-  // Sensor Section dengan Progress Bar
-  // ============================================
-  Widget _buildSensorSection(MqttService mqtt) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 30),
       child: Column(
         children: [
-          // Water Level (EC/TDS)
-          _buildProgressBar(
-            iconPath: 'assets/images/ikon_water.svg',
-            iconFallback: Icons.water_drop,
-            label: 'EC',
-            value: mqtt.moistureLevel,
-            maxValue: 100,
-            unit: '',
-            color: const Color(0xFF42A5F5),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Tumbuhkan',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF2E7D32),
+                    ),
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    'Smart Hydroponics Dashboard',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey,
+                    ),
+                  ),
+                ],
+              ),
+              IconButton(
+                icon: const Icon(Icons.refresh),
+                onPressed: () => mqtt.connect(),
+                color: const Color(0xFF2E7D32),
+              ),
+            ],
           ),
-          const SizedBox(height: 15),
-
-          // pH Level
-          _buildProgressBar(
-            iconPath: 'assets/images/icon_ph.svg',
-            iconFallback: Icons.science,
-            label: 'pH',
-            value: mqtt.humidity / 10, // Map 0-100 to 0-14
-            maxValue: 14,
-            unit: '',
-            color: const Color(0xFF00BCD4),
-          ),
-          const SizedBox(height: 15),
-
-          // Nutrients (N)
-          _buildProgressBar(
-            iconPath: 'assets/images/icon_nutrients.svg',
-            iconFallback: Icons.bolt,
-            label: 'N',
-            value: mqtt.lightLevel,
-            maxValue: 200,
-            unit: 'ppm',
-            color: const Color(0xFFFDD835),
-          ),
+          const SizedBox(height: 12),
+          const ConnectionStatusIndicator(),
         ],
       ),
     );
   }
 
-  // Progress Bar Widget dengan SVG Support
-  Widget _buildProgressBar({
-    required String iconPath,
-    required IconData iconFallback,
+  // ============================================
+  // Loading State
+  // ============================================
+  Widget _buildLoading() {
+    return const Center(
+      child: CircularProgressIndicator(
+        color: Color(0xFF2E7D32),
+      ),
+    );
+  }
+
+  // ============================================
+  // Dashboard
+  // ============================================
+  Widget _buildDashboard(MqttService mqtt) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Sensor Data Section
+          const Text(
+            'Sensor Data',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Sensor Grid (7 cards in 2 columns)
+          GridView.count(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            crossAxisCount: 2,
+            mainAxisSpacing: 12,
+            crossAxisSpacing: 12,
+            childAspectRatio: 1.3,
+            children: [
+              _buildSensorCard(
+                icon: Icons.thermostat,
+                label: 'Temperature',
+                value: mqtt.temperature.toStringAsFixed(1),
+                unit: '°C',
+                color: Colors.orange,
+              ),
+              _buildSensorCard(
+                icon: Icons.water_drop,
+                label: 'Humidity',
+                value: mqtt.humidity.toStringAsFixed(1),
+                unit: '%',
+                color: Colors.blue,
+              ),
+              _buildSensorCard(
+                icon: Icons.grass,
+                label: 'Moisture',
+                value: mqtt.moistureLevel.toStringAsFixed(1),
+                unit: '%',
+                color: Colors.brown,
+              ),
+              _buildSensorCard(
+                icon: Icons.light_mode,
+                label: 'Light',
+                value: mqtt.lightLevel.toStringAsFixed(0),
+                unit: 'lux',
+                color: Colors.amber,
+              ),
+              _buildSensorCard(
+                icon: Icons.science,
+                label: 'pH Level',
+                value: mqtt.phLevel.toStringAsFixed(1),
+                unit: '',
+                color: Colors.purple,
+              ),
+              _buildSensorCard(
+                icon: Icons.local_drink,
+                label: 'Nutrient A',
+                value: mqtt.nutrientA.toStringAsFixed(1),
+                unit: '%',
+                color: Colors.green,
+              ),
+              _buildSensorCard(
+                icon: Icons.local_drink,
+                label: 'Nutrient B',
+                value: mqtt.nutrientB.toStringAsFixed(1),
+                unit: '%',
+                color: Colors.teal,
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 20),
+        ],
+      ),
+    );
+  }
+
+  // ============================================
+  // Sensor Card Widget
+  // ============================================
+  Widget _buildSensorCard({
+    required IconData icon,
     required String label,
-    required double value,
-    required double maxValue,
+    required String value,
     required String unit,
     required Color color,
   }) {
-    final percentage = (value / maxValue).clamp(0.0, 1.0);
-
-    return Row(
-      children: [
-        // Icon (SVG)
-        SizedBox(
-          width: 40,
-          child: SvgPicture.asset(
-            iconPath,
-            height: 30,
-            colorFilter: ColorFilter.mode(
-              color,
-              BlendMode.srcIn,
-            ),
-            placeholderBuilder: (context) => Icon(
-              iconFallback,
-              color: color,
-              size: 30,
-            ),
-          ),
-        ),
-        const SizedBox(width: 10),
-
-        // Label
-        SizedBox(
-          width: 30,
-          child: Text(
-            label,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF424242),
-            ),
-          ),
-        ),
-
-        // Progress Bar
-        Expanded(
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: LinearProgressIndicator(
-              value: percentage,
-              minHeight: 20,
-              backgroundColor: Colors.grey[300],
-              valueColor: AlwaysStoppedAnimation<Color>(color),
-            ),
-          ),
-        ),
-
-        const SizedBox(width: 10),
-
-        // Value
-        SizedBox(
-          width: 60,
-          child: Text(
-            '${value.toStringAsFixed(1)}$unit',
-            textAlign: TextAlign.right,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-              color: color,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  // ============================================
-  // Temperature Display (Large)
-  // ============================================
-  Widget _buildTemperatureDisplay(MqttService mqtt) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        // Temperature Icon
-        SvgPicture.asset(
-          'assets/images/ikon_temperature.svg',
-          height: 50,
-          colorFilter: const ColorFilter.mode(
-            Color(0xFFFF5252),
-            BlendMode.srcIn,
-          ),
-          placeholderBuilder: (context) => const Icon(
-            Icons.thermostat,
-            color: Color(0xFFFF5252),
-            size: 50,
-          ),
-        ),
-        const SizedBox(width: 20),
-
-        // Temperature Values
-        Text(
-          '${mqtt.temperature.toStringAsFixed(0)}°, '
-          '${mqtt.humidity.toStringAsFixed(0)}°, '
-          '${mqtt.lightLevel.toStringAsFixed(0)}%',
-          style: const TextStyle(
-            fontSize: 32,
-            fontWeight: FontWeight.bold,
-            color: Color(0xFF1976D2),
-          ),
-        ),
-      ],
-    );
-  }
-
-  // ============================================
-  // Action Buttons
-  // ============================================
-  Widget _buildActionButtons(MqttService mqtt) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 40),
-      child: Column(
-        children: [
-          // Button 1: Yesayi kondisi Optimal
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: mqtt.isConnected
-                  ? () {
-                      // Set optimal conditions
-                      mqtt.setPump(true);
-                      mqtt.setGrowLight(true);
-                      _showSnackBar(context, '✅ Setting optimal conditions...');
-                    }
-                  : null,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF29B6F6),
-                disabledBackgroundColor: Colors.grey[300],
-                padding: const EdgeInsets.symmetric(vertical: 15),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(25),
-                ),
-                elevation: mqtt.isConnected ? 3 : 0,
-              ),
-              child: Text(
-                'Yesayi kondisi Optimal',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: mqtt.isConnected ? Colors.white : Colors.grey,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 15),
-
-          // Button 2: Jaga terus ya!
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: mqtt.isConnected
-                  ? () {
-                      _showSnackBar(context, '🌱 Monitoring active!');
-                    }
-                  : null,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF29B6F6),
-                disabledBackgroundColor: Colors.grey[300],
-                padding: const EdgeInsets.symmetric(vertical: 15),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(25),
-                ),
-                elevation: mqtt.isConnected ? 3 : 0,
-              ),
-              child: Text(
-                'Jaga terus ya!',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: mqtt.isConnected ? Colors.white : Colors.grey,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ============================================
-  // Mascot Section
-  // ============================================
-  Widget _buildMascotSection() {
-    return Stack(
-      alignment: Alignment.center,
-      children: [
-        // Background gradient sand
-        Positioned(
-          bottom: 0,
-          child: Container(
-            width: MediaQuery.of(context).size.width,
-            height: 150,
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topRight,
-                end: Alignment.bottomLeft,
-                colors: [
-                  Color(0xFFFFE0B2),
-                  Color(0xFFFFECB3),
-                ],
-              ),
-            ),
-          ),
-        ),
-
-        // Mascot Image (SVG)
-        Column(
-          children: [
-            SvgPicture.asset(
-              'assets/images/Tumu.svg',
-              height: 200,
-              placeholderBuilder: (context) => Container(
-                height: 200,
-                width: 200,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(100),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
-                      blurRadius: 20,
-                      offset: const Offset(0, 10),
-                    ),
-                  ],
-                ),
-                child: const Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.eco, size: 80, color: Color(0xFF2E7D32)),
-                    SizedBox(height: 10),
-                    Text(
-                      'Tumu',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF2E7D32),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  // ============================================
-  // Bottom Navigation Bar
-  // ============================================
-  Widget _buildBottomNavBar() {
     return Container(
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF29B6F6),
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(30),
-          topRight: Radius.circular(30),
-        ),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, -5),
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
-      child: ClipRRect(
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(30),
-          topRight: Radius.circular(30),
-        ),
-        child: BottomNavigationBar(
-          currentIndex: _selectedIndex,
-          onTap: (index) {
-            setState(() {
-              _selectedIndex = index;
-            });
-
-            switch (index) {
-              case 0:
-                _showSnackBar(context, '📷 Camera feature coming soon');
-                break;
-              case 1:
-                // Already on home
-                break;
-              case 2:
-                _showSnackBar(context, '🎮 Controller feature coming soon');
-                break;
-            }
-          },
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          selectedItemColor: Colors.white,
-          unselectedItemColor: Colors.white70,
-          type: BottomNavigationBarType.fixed,
-          showSelectedLabels: false,
-          showUnselectedLabels: false,
-          items: [
-            // Camera
-            BottomNavigationBarItem(
-              icon: SvgPicture.asset(
-                'assets/images/btn_cam.svg',
-                height: 30,
-                colorFilter: ColorFilter.mode(
-                  _selectedIndex == 0 ? Colors.white : Colors.white70,
-                  BlendMode.srcIn,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            icon,
+            size: 32,
+            color: color,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 12,
+              color: Colors.grey,
+              fontWeight: FontWeight.w500,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 4),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                value,
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: color,
                 ),
               ),
-              label: '',
-            ),
-
-            // Home
-            BottomNavigationBarItem(
-              icon: SvgPicture.asset(
-                'assets/images/btn_home.svg',
-                height: 30,
-                colorFilter: ColorFilter.mode(
-                  _selectedIndex == 1 ? Colors.white : Colors.white70,
-                  BlendMode.srcIn,
+              if (unit.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(left: 4, bottom: 2),
+                  child: Text(
+                    unit,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: color.withOpacity(0.7),
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
                 ),
-              ),
-              label: '',
-            ),
-
-            // Controller
-            BottomNavigationBarItem(
-              icon: SvgPicture.asset(
-                'assets/images/btn_controlling.svg',
-                height: 30,
-                colorFilter: ColorFilter.mode(
-                  _selectedIndex == 2 ? Colors.white : Colors.white70,
-                  BlendMode.srcIn,
-                ),
-              ),
-              label: '',
-            ),
-          ],
-        ),
+            ],
+          ),
+        ],
       ),
     );
   }
 
-  void _showSnackBar(BuildContext context, String message) {
+  // ============================================
+  // Actuator Card Widget
+  // ============================================
+  Widget _buildActuatorCard({
+    required String label,
+    required bool isOn,
+    required ValueChanged<bool> onToggle,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: isOn
+                      ? const Color(0xFF2E7D32).withOpacity(0.1)
+                      : Colors.grey.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  isOn ? Icons.power : Icons.power_off,
+                  color: isOn ? const Color(0xFF2E7D32) : Colors.grey,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    isOn ? 'Active' : 'Inactive',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: isOn ? const Color(0xFF2E7D32) : Colors.grey,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          Switch(
+            value: isOn,
+            onChanged: onToggle,
+            activeColor: const Color(0xFF2E7D32),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ============================================
+  // Navigation Handling
+  // ============================================
+  void _handleNavigation(int index) {
+    switch (index) {
+      case 0:
+        Navigator.pushReplacementNamed(
+            context, '/camera'); // ✅ Navigate to camera
+        break;
+      case 1:
+        // Already on home
+        break;
+      case 2:
+        Navigator.pushNamed(context, '/controller'); // ✅ Navigate to controller
+        break;
+    }
+  }
+
+  // ============================================
+  // Snackbar
+  // ============================================
+  void _showSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
         duration: const Duration(seconds: 2),
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-        ),
+        backgroundColor: Colors.black87,
       ),
     );
   }

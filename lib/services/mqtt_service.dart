@@ -1,332 +1,275 @@
 import 'dart:async';
-import 'dart:math';
+import 'package:flutter/foundation.dart';
 import 'package:mqtt_client/mqtt_client.dart';
 import 'package:mqtt_client/mqtt_server_client.dart';
-import 'package:flutter/foundation.dart';
 import '../config/constants.dart';
+import 'mqtt_connection_state.dart';
 
 class MqttService extends ChangeNotifier {
-  late MqttServerClient _client;
-  bool _isConnected = false;
-  bool get isConnected => _isConnected;
-
-  int _retryCount = 0;
-  static const int _maxRetries = 5;
+  // ============================================
+  // Properties
+  // ============================================
+  late MqttServerClient client;
+  AppMqttConnectionState _connectionState = AppMqttConnectionState.disconnected;
 
   // Sensor Data
   double _temperature = 0.0;
   double _humidity = 0.0;
-  double _lightLevel = 0.0;
   double _moistureLevel = 0.0;
-
-  double get temperature => _temperature;
-  double get humidity => _humidity;
-  double get lightLevel => _lightLevel;
-  double get moistureLevel => _moistureLevel;
+  double _lightLevel = 0.0;
+  double _phLevel = 0.0;
+  double _nutrientA = 0.0;
+  double _nutrientB = 0.0;
 
   // Actuator States
   bool _isPumpOn = false;
   bool _isGrowLightOn = false;
-  bool _isFanOn = false;
+  bool _isPhUpPumpOn = false;
+  bool _isPhDownPumpOn = false;
+  bool _isNutrientAPumpOn = false;
+  bool _isNutrientBPumpOn = false;
 
+  String _lastError = '';
+  int _reconnectAttempts = 0;
+
+  // ============================================
+  // Getters
+  // ============================================
+  AppMqttConnectionState get connectionState => _connectionState;
+  bool get isConnected => _connectionState == AppMqttConnectionState.connected;
+  bool get isConnecting =>
+      _connectionState == AppMqttConnectionState.connecting;
+  bool get isDisconnected =>
+      _connectionState == AppMqttConnectionState.disconnected;
+  bool get hasError => _connectionState == AppMqttConnectionState.error;
+  String get lastError => _lastError;
+  int get reconnectAttempts => _reconnectAttempts;
+
+  // Sensor Getters
+  double get temperature => _temperature;
+  double get humidity => _humidity;
+  double get moistureLevel => _moistureLevel;
+  double get lightLevel => _lightLevel;
+  double get phLevel => _phLevel;
+  double get nutrientA => _nutrientA;
+  double get nutrientB => _nutrientB;
+
+  // Actuator Getters
   bool get isPumpOn => _isPumpOn;
   bool get isGrowLightOn => _isGrowLightOn;
-  bool get isFanOn => _isFanOn;
+  bool get isPhUpPumpOn => _isPhUpPumpOn;
+  bool get isPhDownPumpOn => _isPhDownPumpOn;
+  bool get isNutrientAPumpOn => _isNutrientAPumpOn;
+  bool get isNutrientBPumpOn => _isNutrientBPumpOn;
 
-  final String _clientId =
-      '${AppConstants.mqttClientIdPrefix}${DateTime.now().millisecondsSinceEpoch}';
-
-  MqttService() {
-    _initializeMqtt();
-  }
-
-  Future<void> _initializeMqtt() async {
-    try {
-      _client = MqttServerClient.withPort(
-        AppConstants.mqttBrokerUrl,
-        _clientId,
-        AppConstants.mqttPort,
-      );
-
-      _client.logging(on: kDebugMode);
-      _client.keepAlivePeriod = AppConstants.mqttKeepAlivePeriod;
-      _client.connectTimeoutPeriod = 10000;
-      _client.autoReconnect = true;
-      _client.resubscribeOnAutoReconnect = true;
-      _client.useWebSocket = false;
-      _client.secure = false;
-      _client.setProtocolV311();
-
-      _client.onConnected = _onConnected;
-      _client.onDisconnected = _onDisconnected;
-      _client.onSubscribed = _onSubscribed;
-      _client.onAutoReconnect = _onAutoReconnect;
-      _client.onAutoReconnected = _onAutoReconnected;
-
-      final connMessage = MqttConnectMessage()
-          .withClientIdentifier(_clientId)
-          .startClean()
-          .withWillQos(MqttQos.atLeastOnce);
-
-      _client.connectionMessage = connMessage;
-
-      debugPrint('🔌 Connecting to MQTT...');
-      debugPrint(
-          '📡 Broker: ${AppConstants.mqttBrokerUrl}:${AppConstants.mqttPort}');
-      debugPrint('📱 Client ID: $_clientId');
-
-      await _client.connect();
-
-      if (_client.connectionStatus?.state == MqttConnectionState.connected) {
-        _retryCount = 0;
-      } else {
-        _handleConnectionFailure();
-      }
-    } catch (e) {
-      debugPrint('❌ MQTT Error: $e');
-      _handleConnectionFailure();
-    }
-  }
-
-  void _handleConnectionFailure() {
-    _client.disconnect();
-    _isConnected = false;
-    notifyListeners();
-
-    if (_retryCount < _maxRetries) {
-      _retryCount++;
-      debugPrint('🔄 Retry $_retryCount/$_maxRetries in 5s...');
-
-      Future.delayed(AppConstants.mqttReconnectDelay, () {
-        _initializeMqtt();
-      });
-    } else {
-      debugPrint('❌ Max retries reached!');
-    }
-  }
-
-  void _onConnected() {
-    debugPrint('');
-    debugPrint('✅ ═══════════════════════════════════════');
-    debugPrint('✅ MQTT CONNECTED SUCCESSFULLY!');
-    debugPrint('✅ ═══════════════════════════════════════');
-    debugPrint('');
-
-    _isConnected = true;
-    _retryCount = 0;
-    notifyListeners();
-
-    _subscribeToTopics();
-    _client.updates?.listen(_onMessage);
-  }
-
-  void _onDisconnected() {
-    debugPrint('⚠️ MQTT Disconnected');
-    _isConnected = false;
-    notifyListeners();
-  }
-
-  void _onAutoReconnect() {
-    debugPrint('🔄 Auto reconnecting...');
-  }
-
-  void _onAutoReconnected() {
-    debugPrint('✅ Auto reconnected!');
-    _isConnected = true;
-    notifyListeners();
-  }
-
-  void _onSubscribed(String topic) {
-    debugPrint('📡 ✓ Subscribed: $topic');
-  }
-
-  void _subscribeToTopics() {
-    try {
-      // Subscribe to sensor topics
-      _client.subscribe(AppConstants.topicTemperature, MqttQos.atLeastOnce);
-      _client.subscribe(AppConstants.topicHumidity, MqttQos.atLeastOnce);
-      _client.subscribe(AppConstants.topicLight, MqttQos.atLeastOnce);
-      _client.subscribe(AppConstants.topicMoisture, MqttQos.atLeastOnce);
-      _client.subscribe(AppConstants.topicDeviceStatus, MqttQos.atLeastOnce);
-
-      // 🔥 Subscribe to actuator STATUS topics (untuk feedback dari hardware)
-      _client.subscribe(AppConstants.topicPumpStatus, MqttQos.atLeastOnce);
-      _client.subscribe(AppConstants.topicGrowLightStatus, MqttQos.atLeastOnce);
-      _client.subscribe(AppConstants.topicFanStatus, MqttQos.atLeastOnce);
-
-      // 🆕 PENTING: Subscribe juga ke CONTROL topics (untuk sync dari MQTT Box)
-      _client.subscribe(AppConstants.topicPump, MqttQos.atLeastOnce);
-      _client.subscribe(AppConstants.topicGrowLight, MqttQos.atLeastOnce);
-      _client.subscribe(AppConstants.topicFan, MqttQos.atLeastOnce);
-
-      debugPrint('✅ Subscribed to ALL topics');
-      debugPrint('📋 Total subscriptions: 11 topics');
-      debugPrint('   - 4 sensor topics');
-      debugPrint('   - 3 control topics (bidirectional)');
-      debugPrint('   - 3 status topics');
-      debugPrint('   - 1 device status');
-    } catch (e) {
-      debugPrint('❌ Subscribe error: $e');
-    }
-  }
-
-  void _onMessage(List<MqttReceivedMessage<MqttMessage>> messages) {
-    final recMess = messages[0].payload as MqttPublishMessage;
-    final topic = messages[0].topic;
-    final payload =
-        MqttPublishPayload.bytesToStringAsString(recMess.payload.message);
-
-    debugPrint('📩 $topic → $payload');
-
-    try {
-      // ============================================
-      // Handle Sensor Data
-      // ============================================
-      if (topic == AppConstants.topicTemperature) {
-        _temperature = double.tryParse(payload) ?? 0.0;
-        notifyListeners();
-      } else if (topic == AppConstants.topicHumidity) {
-        _humidity = double.tryParse(payload) ?? 0.0;
-        notifyListeners();
-      } else if (topic == AppConstants.topicLight) {
-        _lightLevel = double.tryParse(payload) ?? 0.0;
-        notifyListeners();
-      } else if (topic == AppConstants.topicMoisture) {
-        _moistureLevel = double.tryParse(payload) ?? 0.0;
-        notifyListeners();
-      }
-
-      // ============================================
-      // 🔥 Handle Actuator CONTROL Topics (dari MQTT Box/External)
-      // ============================================
-      else if (topic == AppConstants.topicPump) {
-        final newState = _parseStatusPayload(payload);
-        if (_isPumpOn != newState) {
-          _isPumpOn = newState;
-          debugPrint(
-              '💧 Pump updated from external: ${newState ? "ON" : "OFF"}');
-          notifyListeners();
-        }
-      } else if (topic == AppConstants.topicGrowLight) {
-        final newState = _parseStatusPayload(payload);
-        if (_isGrowLightOn != newState) {
-          _isGrowLightOn = newState;
-          debugPrint(
-              '💡 Light updated from external: ${newState ? "ON" : "OFF"}');
-          notifyListeners();
-        }
-      } else if (topic == AppConstants.topicFan) {
-        final newState = _parseStatusPayload(payload);
-        if (_isFanOn != newState) {
-          _isFanOn = newState;
-          debugPrint(
-              '🌀 Fan updated from external: ${newState ? "ON" : "OFF"}');
-          notifyListeners();
-        }
-      }
-
-      // ============================================
-      // Handle Actuator STATUS Topics (feedback dari hardware)
-      // ============================================
-      else if (topic == AppConstants.topicPumpStatus) {
-        final newState = _parseStatusPayload(payload);
-        if (_isPumpOn != newState) {
-          _isPumpOn = newState;
-          debugPrint('💧 Pump status confirmed: ${newState ? "ON" : "OFF"}');
-          notifyListeners();
-        }
-      } else if (topic == AppConstants.topicGrowLightStatus) {
-        final newState = _parseStatusPayload(payload);
-        if (_isGrowLightOn != newState) {
-          _isGrowLightOn = newState;
-          debugPrint('💡 Light status confirmed: ${newState ? "ON" : "OFF"}');
-          notifyListeners();
-        }
-      } else if (topic == AppConstants.topicFanStatus) {
-        final newState = _parseStatusPayload(payload);
-        if (_isFanOn != newState) {
-          _isFanOn = newState;
-          debugPrint('🌀 Fan status confirmed: ${newState ? "ON" : "OFF"}');
-          notifyListeners();
-        }
-      }
-    } catch (e) {
-      debugPrint('❌ Parse error: $e');
-    }
-  }
-
-  // Helper: Parse Status Payload
-  // Support: ON/OFF, on/off, 1/0, true/false
-  bool _parseStatusPayload(String payload) {
-    final normalized = payload.trim().toUpperCase();
-    return normalized == 'ON' || normalized == '1' || normalized == 'TRUE';
-  }
-
-  void publishMessage(String topic, String message) {
-    if (!_isConnected) {
-      debugPrint('⚠️ Cannot publish: Not connected');
+  // ============================================
+  // Connect Method (Simple!)
+  // ============================================
+  Future<void> connect() async {
+    if (_connectionState == AppMqttConnectionState.connecting) {
+      debugPrint('⚠️ Already connecting...');
       return;
     }
 
     try {
-      final builder = MqttClientPayloadBuilder();
-      builder.addString(message);
-      _client.publishMessage(topic, MqttQos.atLeastOnce, builder.payload!);
-      debugPrint('📤 $topic → $message');
+      _connectionState = AppMqttConnectionState.connecting;
+      notifyListeners();
+
+      // ✅ Simple setup like your example
+      client = MqttServerClient(
+        AppConstants.mqttBrokerUrl,
+        AppConstants.mqttClientId,
+      );
+      client.port = AppConstants.mqttPort;
+      client.keepAlivePeriod = 60;
+      client.logging(on: false); // ✅ Disable logging
+
+      debugPrint('🔌 Connecting to ${AppConstants.mqttBrokerUrl}...');
+
+      // ✅ Simple connect
+      await client.connect();
+
+      if (client.connectionStatus?.state == MqttConnectionState.connected) {
+        _connectionState = AppMqttConnectionState.connected;
+        _reconnectAttempts = 0;
+        debugPrint('✅ Connected!');
+
+        // Subscribe to topics
+        _subscribeToTopics();
+
+        // Listen to messages
+        _setupListener();
+
+        notifyListeners();
+      } else {
+        throw Exception('Connection failed');
+      }
     } catch (e) {
-      debugPrint('❌ Publish error: $e');
+      _connectionState = AppMqttConnectionState.error;
+      _lastError = e.toString();
+      debugPrint('❌ Error: $e');
+      notifyListeners();
+
+      // Simple retry
+      _reconnectAttempts++;
+      if (_reconnectAttempts < AppConstants.maxReconnectAttempts) {
+        debugPrint(
+            '🔄 Retrying in 5s... ($_reconnectAttempts/${AppConstants.maxReconnectAttempts})');
+        Future.delayed(const Duration(seconds: 5), connect);
+      }
     }
   }
 
   // ============================================
-  // Actuator Control Methods
+  // Subscribe to Topics
   // ============================================
+  void _subscribeToTopics() {
+    debugPrint('📡 Subscribing to topics...');
 
-  void togglePump() {
-    final newState = !_isPumpOn;
-    publishMessage(AppConstants.topicPump, newState ? 'ON' : 'OFF');
+    client.subscribe(AppConstants.topicTemperature, MqttQos.atMostOnce);
+    client.subscribe(AppConstants.topicHumidity, MqttQos.atMostOnce);
+    client.subscribe(AppConstants.topicMoisture, MqttQos.atMostOnce);
+    client.subscribe(AppConstants.topicLight, MqttQos.atMostOnce);
+    client.subscribe(AppConstants.topicPH, MqttQos.atMostOnce);
+    client.subscribe(AppConstants.topicNutrientA, MqttQos.atMostOnce);
+    client.subscribe(AppConstants.topicNutrientB, MqttQos.atMostOnce);
+
+    client.subscribe(AppConstants.topicPumpStatus, MqttQos.atMostOnce);
+    client.subscribe(AppConstants.topicGrowLightStatus, MqttQos.atMostOnce);
+    client.subscribe(AppConstants.topicPhUpPumpStatus, MqttQos.atMostOnce);
+    client.subscribe(AppConstants.topicPhDownPumpStatus, MqttQos.atMostOnce);
+    client.subscribe(AppConstants.topicNutrientAPumpStatus, MqttQos.atMostOnce);
+    client.subscribe(AppConstants.topicNutrientBPumpStatus, MqttQos.atMostOnce);
+
+    debugPrint('✅ Subscribed to all topics');
   }
 
-  void setPump(bool state) {
-    publishMessage(AppConstants.topicPump, state ? 'ON' : 'OFF');
+  // ============================================
+  // Listen to Messages (Simple!)
+  // ============================================
+  void _setupListener() {
+    client.updates?.listen((messages) {
+      final message = messages[0];
+      final payload = message.payload as MqttPublishMessage;
+      final topic = message.topic;
+      final value = MqttPublishPayload.bytesToStringAsString(
+        payload.payload.message,
+      );
+
+      debugPrint('📨 $topic = $value');
+
+      // Parse message
+      _handleMessage(topic, value);
+    });
   }
 
-  void toggleGrowLight() {
-    final newState = !_isGrowLightOn;
-    publishMessage(AppConstants.topicGrowLight, newState ? 'ON' : 'OFF');
+  // ============================================
+  // Handle Incoming Messages
+  // ============================================
+  void _handleMessage(String topic, String value) {
+    try {
+      switch (topic) {
+        case AppConstants.topicTemperature:
+          _temperature = double.parse(value);
+          break;
+        case AppConstants.topicHumidity:
+          _humidity = double.parse(value);
+          break;
+        case AppConstants.topicMoisture:
+          _moistureLevel = double.parse(value);
+          break;
+        case AppConstants.topicLight:
+          _lightLevel = double.parse(value);
+          break;
+        case AppConstants.topicPH:
+          _phLevel = double.parse(value);
+          break;
+        case AppConstants.topicNutrientA:
+          _nutrientA = double.parse(value);
+          break;
+        case AppConstants.topicNutrientB:
+          _nutrientB = double.parse(value);
+          break;
+
+        case AppConstants.topicPumpStatus:
+          _isPumpOn = value == '1' || value.toLowerCase() == 'true';
+          break;
+        case AppConstants.topicGrowLightStatus:
+          _isGrowLightOn = value == '1' || value.toLowerCase() == 'true';
+          break;
+        case AppConstants.topicPhUpPumpStatus:
+          _isPhUpPumpOn = value == '1' || value.toLowerCase() == 'true';
+          break;
+        case AppConstants.topicPhDownPumpStatus:
+          _isPhDownPumpOn = value == '1' || value.toLowerCase() == 'true';
+          break;
+        case AppConstants.topicNutrientAPumpStatus:
+          _isNutrientAPumpOn = value == '1' || value.toLowerCase() == 'true';
+          break;
+        case AppConstants.topicNutrientBPumpStatus:
+          _isNutrientBPumpOn = value == '1' || value.toLowerCase() == 'true';
+          break;
+      }
+
+      notifyListeners();
+    } catch (e) {
+      debugPrint('⚠️ Parse error: $e');
+    }
   }
 
-  void setGrowLight(bool state) {
-    publishMessage(AppConstants.topicGrowLight, state ? 'ON' : 'OFF');
+  // ============================================
+  // Publish Messages (Simple!)
+  // ============================================
+  void publish(String topic, String message) {
+    if (!isConnected) {
+      debugPrint('⚠️ Not connected');
+      return;
+    }
+
+    final builder = MqttClientPayloadBuilder();
+    builder.addString(message);
+    client.publishMessage(topic, MqttQos.atMostOnce, builder.payload!);
+    debugPrint('📤 Published: $topic = $message');
   }
 
-  void toggleFan() {
-    final newState = !_isFanOn;
-    publishMessage(AppConstants.topicFan, newState ? 'ON' : 'OFF');
-  }
+  // Control Methods
+  void setPump(bool status) => publish(
+        AppConstants.topicPumpControl,
+        status ? '1' : '0',
+      );
 
-  void setFan(bool state) {
-    publishMessage(AppConstants.topicFan, state ? 'ON' : 'OFF');
-  }
+  void setGrowLight(bool status) => publish(
+        AppConstants.topicGrowLightControl,
+        status ? '1' : '0',
+      );
 
-  // Backward compatibility
-  void controlPump(bool turnOn) => setPump(turnOn);
-  void controlGrowLight(bool turnOn) => setGrowLight(turnOn);
-  void controlFan(bool turnOn) => setFan(turnOn);
+  void setPhUpPump(bool status) => publish(
+        AppConstants.topicPhUpPumpControl,
+        status ? '1' : '0',
+      );
 
-  Future<void> reconnect() async {
-    debugPrint('🔄 Manual reconnect');
-    disconnect();
-    _retryCount = 0;
-    await Future.delayed(const Duration(seconds: 1));
-    await _initializeMqtt();
-  }
+  void setPhDownPump(bool status) => publish(
+        AppConstants.topicPhDownPumpControl,
+        status ? '1' : '0',
+      );
 
+  void setNutrientAPump(bool status) => publish(
+        AppConstants.topicNutrientAPumpControl,
+        status ? '1' : '0',
+      );
+
+  void setNutrientBPump(bool status) => publish(
+        AppConstants.topicNutrientBPumpControl,
+        status ? '1' : '0',
+      );
+
+  // ============================================
+  // Disconnect
+  // ============================================
   void disconnect() {
-    if (_client.connectionStatus?.state == MqttConnectionState.connected) {
-      _client.disconnect();
-      debugPrint('🔌 Disconnected');
-    }
+    client.disconnect();
+    _connectionState = AppMqttConnectionState.disconnected;
+    notifyListeners();
   }
 
   @override

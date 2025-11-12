@@ -1,58 +1,87 @@
+
 class AppConstants {
-  // App Info
-  static const String appName = 'Tumbuhkan';
-  static const String appVersion = '1.0.0';
-  static const String appTagline = 'Smart IoT Hydroponics System';
+  // ============================================
+  // MQTT Configuration
+  // ============================================
   static const String mqttBrokerUrl = 'broker.hivemq.com';
+  // static const String mqttBrokerUrl = 'test.mosquitto.org';
   static const int mqttPort = 1883;
+  static const String mqttClientId = 'tumbuhkan_flutter_client';
 
-  static const String mqttClientIdPrefix = 'tumbuhkan_';
-  static const int mqttKeepAlivePeriod = 60;
-  static const Duration mqttReconnectDelay = Duration(seconds: 5);
+  // Connection Settings
+  static const int mqttKeepAlive = 60; // seconds
+  static const int mqttTimeout = 5; //
 
+  // Auto-Reconnect Settings
+  static const int maxReconnectAttempts = 5;
+  static const Duration reconnectDelay = Duration(seconds: 3);
+  static const Duration maxReconnectDelay = Duration(minutes: 5);
+
+  // Heartbeat Settings
+  static const Duration heartbeatInterval = Duration(seconds: 30);
+  static const Duration heartbeatTimeout = Duration(minutes: 2);
+
+  // ============================================
   // MQTT Topics - Sensors (Subscribe)
+  // ============================================
   static const String topicTemperature = 'tumbuhkan/sensor/temperature';
   static const String topicHumidity = 'tumbuhkan/sensor/humidity';
-  static const String topicLight = 'tumbuhkan/sensor/light';
   static const String topicMoisture = 'tumbuhkan/sensor/moisture';
+  static const String topicLight = 'tumbuhkan/sensor/light';
+  static const String topicPH = 'tumbuhkan/sensor/ph';
+  static const String topicNutrientA = 'tumbuhkan/sensor/nutrient_a';
+  static const String topicNutrientB = 'tumbuhkan/sensor/nutrient_b';
 
   // ============================================
-  // 🆕 MQTT Topics - Actuators (Two-Way Communication)
+  // MQTT Topics - Actuator Control (Publish)
   // ============================================
+  static const String topicPumpControl = 'tumbuhkan/actuator/pump/control';
+  static const String topicGrowLightControl =
+      'tumbuhkan/actuator/growlight/control';
+  static const String topicPhUpPumpControl = 'tumbuhkan/actuator/ph_up/control';
+  static const String topicPhDownPumpControl =
+      'tumbuhkan/actuator/ph_down/control';
+  static const String topicNutrientAPumpControl =
+      'tumbuhkan/actuator/nutrient_a/control';
+  static const String topicNutrientBPumpControl =
+      'tumbuhkan/actuator/nutrient_b/control';
 
-  // Control Topics (App → Hardware) - untuk kirim command
-  static const String topicPump = 'tumbuhkan/actuator/pump';
-  static const String topicGrowLight = 'tumbuhkan/actuator/light';
-  static const String topicFan = 'tumbuhkan/actuator/fan';
-
-  // Status Topics (Hardware → App) - untuk terima status feedback
+  // ============================================
+  // MQTT Topics - Actuator Status (Subscribe)
+  // ============================================
   static const String topicPumpStatus = 'tumbuhkan/actuator/pump/status';
-  static const String topicGrowLightStatus = 'tumbuhkan/actuator/light/status';
-  static const String topicFanStatus = 'tumbuhkan/actuator/fan/status';
+  static const String topicGrowLightStatus =
+      'tumbuhkan/actuator/growlight/status';
+  static const String topicPhUpPumpStatus = 'tumbuhkan/actuator/ph_up/status';
+  static const String topicPhDownPumpStatus =
+      'tumbuhkan/actuator/ph_down/status';
+  static const String topicNutrientAPumpStatus =
+      'tumbuhkan/actuator/nutrient_a/status';
+  static const String topicNutrientBPumpStatus =
+      'tumbuhkan/actuator/nutrient_b/status';
 
-  // MQTT Topics - Device Status
-  static const String topicDeviceStatus = 'tumbuhkan/device/status';
-  static const String topicDeviceControl = 'tumbuhkan/device/control';
+  // ============================================
+  // Sensor Thresholds
+  // ============================================
+  static const double minTemperature = 18.0;
+  static const double maxTemperature = 30.0;
+  static const double minHumidity = 40.0;
+  static const double maxHumidity = 80.0;
+  static const double minPH = 5.5;
+  static const double maxPH = 6.5;
+  static const double minMoisture = 40.0;
+  static const double maxMoisture = 80.0;
 
   // ============================================
   // API URLs
   // ============================================
-  static const String flaskApiBaseUrl = 'https://your-flask-api.com';
-  static const String flaskDiseaseDetectionEndpoint = '/api/detect-disease';
+  static const String baseUrl = 'https://api.tumbuhkan.com';
+  static const String weatherApiUrl = 'https://api.openweathermap.org';
 
   // ============================================
-  // Firebase Collections
+  // App Info
   // ============================================
-  static const String devicesCollection = 'devices';
-  static const String sensorsCollection = 'sensors';
-  static const String actuatorsCollection = 'actuators';
-  static const String usersCollection = 'users';
-  static const String plantsCollection = 'plants';
-  static const String alertsCollection = 'alerts';
-
-  // ============================================
-  // App Behavior
-  // ============================================
-  static const Duration splashDuration = Duration(seconds: 3);
-  static const Duration sensorUpdateInterval = Duration(seconds: 5);
+  static const String appName = 'Tumbuhkan';
+  static const String appVersion = '1.0.0';
+  static const String appTagline = 'Smart Hydroponics by Part-IoT';
 }
