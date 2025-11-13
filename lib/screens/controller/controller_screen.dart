@@ -19,95 +19,146 @@ class _ControllerScreenState extends State<ControllerScreen> {
     final mqtt = Provider.of<MqttService>(context);
 
     return Scaffold(
-      backgroundColor: const Color(0xFF29B6F6), // Blue background like mockup
+      backgroundColor: const Color(0xFFF5F5F5),
       body: SafeArea(
         child: Column(
           children: [
             _buildHeader(mqtt),
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.all(24),
+                padding: const EdgeInsets.all(16), // ✅ Reduced padding
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const SizedBox(height: 20),
-
-                    // CONTROLLING Section
+                    // Water & pH Control Section
                     const Text(
-                      'CONTROLLING',
+                      'Water & pH Control',
                       style: TextStyle(
-                        fontSize: 24,
+                        fontSize: 16, // ✅ Reduced font size
                         fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                        letterSpacing: 2,
+                        color: Colors.black87,
                       ),
                     ),
-                    const SizedBox(height: 40),
+                    const SizedBox(height: 12),
 
-                    // Control Buttons Row 1
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    // Control Buttons Grid
+                    GridView.count(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      crossAxisCount: 2,
+                      mainAxisSpacing: 10, // ✅ Reduced spacing
+                      crossAxisSpacing: 10,
+                      childAspectRatio: 1.1, // ✅ Adjusted ratio
                       children: [
-                        _buildControlButton(
+                        _buildControlCard(
                           icon: Icons.water_drop,
-                          label: 'WATERING',
+                          label: 'Watering',
                           isActive: mqtt.isPumpOn,
                           onTap: () => mqtt.setPump(!mqtt.isPumpOn),
+                          color: Colors.blue,
                         ),
-                        _buildControlButton(
+                        _buildControlCard(
+                          icon: Icons.lightbulb,
+                          label: 'Grow Light',
+                          isActive: mqtt.isGrowLightOn,
+                          onTap: () => mqtt.setGrowLight(!mqtt.isGrowLightOn),
+                          color: Colors.amber,
+                        ),
+                        _buildControlCard(
                           icon: Icons.arrow_upward,
-                          label: 'UP',
-                          sublabel: 'pH',
+                          label: 'pH Up',
                           isActive: mqtt.isPhUpPumpOn,
                           onTap: () => mqtt.setPhUpPump(!mqtt.isPhUpPumpOn),
+                          color: Colors.purple,
                         ),
-                        _buildControlButton(
+                        _buildControlCard(
                           icon: Icons.arrow_downward,
-                          label: 'DOWN',
-                          sublabel: 'pH',
+                          label: 'pH Down',
                           isActive: mqtt.isPhDownPumpOn,
                           onTap: () => mqtt.setPhDownPump(!mqtt.isPhDownPumpOn),
+                          color: Colors.orange,
                         ),
                       ],
                     ),
 
-                    const SizedBox(height: 60),
+                    const SizedBox(height: 24),
 
-                    // NUTRIENTS Section
+                    // Nutrients Section
                     const Text(
-                      'NUTRIENTS',
+                      'Nutrient Control',
                       style: TextStyle(
-                        fontSize: 24,
+                        fontSize: 16,
                         fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                        letterSpacing: 2,
+                        color: Colors.black87,
                       ),
                     ),
-                    const SizedBox(height: 40),
+                    const SizedBox(height: 12),
 
-                    // Control Buttons Row 2
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    // Nutrient Buttons Grid
+                    GridView.count(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      crossAxisCount: 2,
+                      mainAxisSpacing: 10,
+                      crossAxisSpacing: 10,
+                      childAspectRatio: 1.1,
                       children: [
-                        _buildControlButton(
-                          icon: Icons.circle,
-                          label: 'A',
+                        _buildControlCard(
+                          icon: Icons.science,
+                          label: 'Nutrient A',
                           isActive: mqtt.isNutrientAPumpOn,
                           onTap: () =>
                               mqtt.setNutrientAPump(!mqtt.isNutrientAPumpOn),
-                          backgroundColor: Colors.yellow,
+                          color: const Color(0xFF4CAF50),
                         ),
-                        _buildControlButton(
-                          icon: Icons.circle,
-                          label: 'B',
+                        _buildControlCard(
+                          icon: Icons.science,
+                          label: 'Nutrient B',
                           isActive: mqtt.isNutrientBPumpOn,
                           onTap: () =>
                               mqtt.setNutrientBPump(!mqtt.isNutrientBPumpOn),
-                          backgroundColor: Colors.yellow,
+                          color: const Color(0xFF009688),
                         ),
                       ],
                     ),
 
-                    const SizedBox(height: 60),
+                    const SizedBox(height: 20),
+
+                    // Info Card
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.blue[50],
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: Colors.blue[200]!,
+                          width: 1,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.info_outline,
+                            color: Colors.blue[700],
+                            size: 20,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              'Tap cards to toggle actuators. Green border indicates active state.',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.blue[900],
+                                height: 1.3,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 16),
                   ],
                 ),
               ),
@@ -119,10 +170,10 @@ class _ControllerScreenState extends State<ControllerScreen> {
         currentIndex: _selectedIndex,
         onTap: (index) {
           if (index != _selectedIndex) {
-            if (index == 1) {
-              Navigator.pushReplacementNamed(context, '/home');
-            } else if (index == 0) {
+            if (index == 0) {
               Navigator.pushReplacementNamed(context, '/camera');
+            } else if (index == 1) {
+              Navigator.pushReplacementNamed(context, '/home');
             }
           }
         },
@@ -135,9 +186,16 @@ class _ControllerScreenState extends State<ControllerScreen> {
   // ============================================
   Widget _buildHeader(MqttService mqtt) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16), // ✅ Reduced padding
       decoration: BoxDecoration(
-        color: const Color(0xFF29B6F6),
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         children: [
@@ -150,17 +208,17 @@ class _ControllerScreenState extends State<ControllerScreen> {
                   Text(
                     'Controller',
                     style: TextStyle(
-                      fontSize: 24,
+                      fontSize: 22, // ✅ Reduced font size
                       fontWeight: FontWeight.bold,
-                      color: Colors.white,
+                      color: Color(0xFF2E7D32),
                     ),
                   ),
-                  SizedBox(height: 4),
+                  SizedBox(height: 2),
                   Text(
                     'Device Control Panel',
                     style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.white70,
+                      fontSize: 11,
+                      color: Colors.grey,
                     ),
                   ),
                 ],
@@ -168,11 +226,12 @@ class _ControllerScreenState extends State<ControllerScreen> {
               IconButton(
                 icon: const Icon(Icons.refresh),
                 onPressed: () => mqtt.connect(),
-                color: Colors.white,
+                color: const Color(0xFF2E7D32),
+                iconSize: 24,
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           const ConnectionStatusIndicator(),
         ],
       ),
@@ -180,61 +239,80 @@ class _ControllerScreenState extends State<ControllerScreen> {
   }
 
   // ============================================
-  // Control Button Widget
+  // Control Card Widget (FIXED - Better proportions)
   // ============================================
-  Widget _buildControlButton({
+  Widget _buildControlCard({
     required IconData icon,
     required String label,
-    String? sublabel,
     required bool isActive,
     required VoidCallback onTap,
-    Color backgroundColor = Colors.white,
+    required Color color,
   }) {
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        width: 90,
-        height: 90,
+        padding: const EdgeInsets.all(12), // ✅ Reduced padding
         decoration: BoxDecoration(
-          color: backgroundColor,
-          shape: BoxShape.circle,
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: isActive ? const Color(0xFF2E7D32) : Colors.white,
-            width: 4,
+            color: isActive ? const Color(0xFF2E7D32) : Colors.transparent,
+            width: 2.5, // ✅ Slightly thinner border
           ),
           boxShadow: [
             BoxShadow(
               color: isActive
-                  ? const Color(0xFF2E7D32).withOpacity(0.5)
-                  : Colors.black.withOpacity(0.2),
-              blurRadius: isActive ? 20 : 10,
-              offset: const Offset(0, 4),
+                  ? const Color(0xFF2E7D32).withOpacity(0.2)
+                  : Colors.black.withOpacity(0.05),
+              blurRadius: isActive ? 10 : 6,
+              offset: const Offset(0, 2),
             ),
           ],
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              icon,
-              size: sublabel != null ? 28 : 36,
-              color:
-                  isActive ? const Color(0xFF2E7D32) : const Color(0xFF29B6F6),
-            ),
-            if (sublabel != null) ...[
-              const SizedBox(height: 2),
-              Text(
-                sublabel,
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                  color: isActive
-                      ? const Color(0xFF2E7D32)
-                      : const Color(0xFF29B6F6),
-                ),
+            // Icon with background
+            Container(
+              padding: const EdgeInsets.all(10), // ✅ Reduced padding
+              decoration: BoxDecoration(
+                color: isActive
+                    ? const Color(0xFF2E7D32).withOpacity(0.1)
+                    : color.withOpacity(0.1),
+                shape: BoxShape.circle,
               ),
-            ],
+              child: Icon(
+                icon,
+                size: 28, // ✅ Reduced icon size
+                color: isActive ? const Color(0xFF2E7D32) : color,
+              ),
+            ),
+            const SizedBox(height: 8), // ✅ Reduced spacing
+
+            // Label
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 13, // ✅ Reduced font size
+                fontWeight: FontWeight.w600,
+                color: isActive ? const Color(0xFF2E7D32) : Colors.black87,
+              ),
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 3), // ✅ Reduced spacing
+
+            // Status
+            Text(
+              isActive ? 'ON' : 'OFF',
+              style: TextStyle(
+                fontSize: 10, // ✅ Reduced font size
+                fontWeight: FontWeight.bold,
+                color: isActive ? const Color(0xFF2E7D32) : Colors.grey,
+              ),
+            ),
           ],
         ),
       ),
