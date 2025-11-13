@@ -1,16 +1,14 @@
-
 class AppConstants {
   // ============================================
   // MQTT Configuration
   // ============================================
   static const String mqttBrokerUrl = 'broker.hivemq.com';
-  // static const String mqttBrokerUrl = 'test.mosquitto.org';
   static const int mqttPort = 1883;
   static const String mqttClientId = 'tumbuhkan_flutter_client';
 
   // Connection Settings
-  static const int mqttKeepAlive = 60; // seconds
-  static const int mqttTimeout = 5; //
+  static const int mqttKeepAlive = 60;
+  static const int mqttTimeout = 5;
 
   // Auto-Reconnect Settings
   static const int maxReconnectAttempts = 5;
@@ -29,8 +27,9 @@ class AppConstants {
   static const String topicMoisture = 'tumbuhkan/sensor/moisture';
   static const String topicLight = 'tumbuhkan/sensor/light';
   static const String topicPH = 'tumbuhkan/sensor/ph';
-  static const String topicNutrientA = 'tumbuhkan/sensor/nutrient_a';
-  static const String topicNutrientB = 'tumbuhkan/sensor/nutrient_b';
+
+  // CHANGED: Single PPM topic (from TDS sensor)
+  static const String topicNutrientPPM = 'tumbuhkan/sensor/ppm';
 
   // ============================================
   // MQTT Topics - Actuator Control (Publish)
@@ -41,6 +40,8 @@ class AppConstants {
   static const String topicPhUpPumpControl = 'tumbuhkan/actuator/ph_up/control';
   static const String topicPhDownPumpControl =
       'tumbuhkan/actuator/ph_down/control';
+
+  // ✅ KEEP: Control topics tetap terpisah
   static const String topicNutrientAPumpControl =
       'tumbuhkan/actuator/nutrient_a/control';
   static const String topicNutrientBPumpControl =
@@ -72,11 +73,9 @@ class AppConstants {
   static const double minMoisture = 40.0;
   static const double maxMoisture = 80.0;
 
-  // ============================================
-  // API URLs
-  // ============================================
-  static const String baseUrl = 'https://api.tumbuhkan.com';
-  static const String weatherApiUrl = 'https://api.openweathermap.org';
+  // ✅ ADD: PPM threshold
+  static const double minPPM = 500.0;
+  static const double maxPPM = 2000.0;
 
   // ============================================
   // App Info

@@ -18,10 +18,15 @@ class MqttService extends ChangeNotifier {
   double _moistureLevel = 0.0;
   double _lightLevel = 0.0;
   double _phLevel = 0.0;
-  double _nutrientA = 0.0;
-  double _nutrientB = 0.0;
 
-  // Actuator States
+  // ✅ CHANGED: Single PPM value (dari TDS sensor)
+  double _nutrientPPM = 0.0;
+
+  // ✅ REMOVED: Separate nutrient A/B sensor values
+  // double _nutrientA = 0.0;
+  // double _nutrientB = 0.0;
+
+  // Actuator States (tetap terpisah untuk control)
   bool _isPumpOn = false;
   bool _isGrowLightOn = false;
   bool _isPhUpPumpOn = false;
@@ -51,10 +56,11 @@ class MqttService extends ChangeNotifier {
   double get moistureLevel => _moistureLevel;
   double get lightLevel => _lightLevel;
   double get phLevel => _phLevel;
-  double get nutrientA => _nutrientA;
-  double get nutrientB => _nutrientB;
 
-  // Actuator Getters
+  // ✅ CHANGED: Single PPM getter
+  double get nutrientPPM => _nutrientPPM;
+
+  // Actuator Getters (tetap ada untuk control)
   bool get isPumpOn => _isPumpOn;
   bool get isGrowLightOn => _isGrowLightOn;
   bool get isPhUpPumpOn => _isPhUpPumpOn;
@@ -63,7 +69,7 @@ class MqttService extends ChangeNotifier {
   bool get isNutrientBPumpOn => _isNutrientBPumpOn;
 
   // ============================================
-  // Connect Method (Simple!)
+  // Connect Method
   // ============================================
   Future<void> connect() async {
     if (_connectionState == AppMqttConnectionState.connecting) {
@@ -75,18 +81,16 @@ class MqttService extends ChangeNotifier {
       _connectionState = AppMqttConnectionState.connecting;
       notifyListeners();
 
-      // ✅ Simple setup like your example
       client = MqttServerClient(
         AppConstants.mqttBrokerUrl,
         AppConstants.mqttClientId,
       );
       client.port = AppConstants.mqttPort;
       client.keepAlivePeriod = 60;
-      client.logging(on: false); // ✅ Disable logging
+      client.logging(on: false);
 
       debugPrint('🔌 Connecting to ${AppConstants.mqttBrokerUrl}...');
 
-      // ✅ Simple connect
       await client.connect();
 
       if (client.connectionStatus?.state == MqttConnectionState.connected) {
@@ -94,10 +98,7 @@ class MqttService extends ChangeNotifier {
         _reconnectAttempts = 0;
         debugPrint('✅ Connected!');
 
-        // Subscribe to topics
         _subscribeToTopics();
-
-        // Listen to messages
         _setupListener();
 
         notifyListeners();
@@ -110,7 +111,6 @@ class MqttService extends ChangeNotifier {
       debugPrint('❌ Error: $e');
       notifyListeners();
 
-      // Simple retry
       _reconnectAttempts++;
       if (_reconnectAttempts < AppConstants.maxReconnectAttempts) {
         debugPrint(
@@ -126,14 +126,17 @@ class MqttService extends ChangeNotifier {
   void _subscribeToTopics() {
     debugPrint('📡 Subscribing to topics...');
 
+    // Sensor topics
     client.subscribe(AppConstants.topicTemperature, MqttQos.atMostOnce);
     client.subscribe(AppConstants.topicHumidity, MqttQos.atMostOnce);
     client.subscribe(AppConstants.topicMoisture, MqttQos.atMostOnce);
     client.subscribe(AppConstants.topicLight, MqttQos.atMostOnce);
     client.subscribe(AppConstants.topicPH, MqttQos.atMostOnce);
-    client.subscribe(AppConstants.topicNutrientA, MqttQos.atMostOnce);
-    client.subscribe(AppConstants.topicNutrientB, MqttQos.atMostOnce);
 
+    // ✅ CHANGED: Subscribe to single PPM topic
+    client.subscribe(AppConstants.topicNutrientPPM, MqttQos.atMostOnce);
+
+    // Actuator status topics (tetap terpisah)
     client.subscribe(AppConstants.topicPumpStatus, MqttQos.atMostOnce);
     client.subscribe(AppConstants.topicGrowLightStatus, MqttQos.atMostOnce);
     client.subscribe(AppConstants.topicPhUpPumpStatus, MqttQos.atMostOnce);
@@ -145,7 +148,7 @@ class MqttService extends ChangeNotifier {
   }
 
   // ============================================
-  // Listen to Messages (Simple!)
+  // Listen to Messages
   // ============================================
   void _setupListener() {
     client.updates?.listen((messages) {
@@ -158,7 +161,6 @@ class MqttService extends ChangeNotifier {
 
       debugPrint('📨 $topic = $value');
 
-      // Parse message
       _handleMessage(topic, value);
     });
   }
@@ -184,13 +186,13 @@ class MqttService extends ChangeNotifier {
         case AppConstants.topicPH:
           _phLevel = double.parse(value);
           break;
-        case AppConstants.topicNutrientA:
-          _nutrientA = double.parse(value);
-          break;
-        case AppConstants.topicNutrientB:
-          _nutrientB = double.parse(value);
+
+        // ✅ CHANGED: Handle single PPM value
+        case AppConstants.topicNutrientPPM:
+          _nutrientPPM = double.parse(value);
           break;
 
+        // Actuator status (tetap terpisah)
         case AppConstants.topicPumpStatus:
           _isPumpOn = value == '1' || value.toLowerCase() == 'true';
           break;
@@ -218,7 +220,7 @@ class MqttService extends ChangeNotifier {
   }
 
   // ============================================
-  // Publish Messages (Simple!)
+  // Publish Messages
   // ============================================
   void publish(String topic, String message) {
     if (!isConnected) {
@@ -232,7 +234,7 @@ class MqttService extends ChangeNotifier {
     debugPrint('📤 Published: $topic = $message');
   }
 
-  // Control Methods
+  // Control Methods (tetap terpisah untuk A dan B)
   void setPump(bool status) => publish(
         AppConstants.topicPumpControl,
         status ? '1' : '0',

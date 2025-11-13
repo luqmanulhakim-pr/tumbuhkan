@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:provider/provider.dart'; // ← Add this
+import 'package:provider/provider.dart';
 import 'config/routes.dart';
 import 'config/theme.dart';
-import 'services/mqtt_service.dart'; // ← Add this
+import 'services/mqtt_service.dart';
+import 'services/schedule_service.dart'; // ✅ Add this
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -21,10 +22,11 @@ void main() {
   );
 
   runApp(
-    // ← Wrap with MultiProvider
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => MqttService()),
+        ChangeNotifierProvider(
+            create: (_) => ScheduleService()..loadDummyData()),
       ],
       child: const TumbuhkanApp(),
     ),

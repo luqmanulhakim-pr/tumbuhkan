@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../services/mqtt_service.dart';
 import '../../widgets/home/connection_status_indicator.dart';
 import '../../widgets/home/bottom_nav_bar.dart';
+import '../sensor_detail/sensor_detail_screen.dart'; // ✅ Import sensor detail screen
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -151,7 +152,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           const SizedBox(height: 16),
 
-          // Sensor Grid (7 cards in 2 columns)
+          // ✅ CHANGED: 6 sensor cards (remove nutrient A/B, add PPM)
           GridView.count(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
@@ -195,21 +196,37 @@ class _HomeScreenState extends State<HomeScreen> {
                 unit: '',
                 color: Colors.purple,
               ),
+
+              // ✅ CHANGED: Single PPM card (nutrient concentration)
               _buildSensorCard(
-                icon: Icons.local_drink,
-                label: 'Nutrient A',
-                value: mqtt.nutrientA.toStringAsFixed(1),
-                unit: '%',
+                icon: Icons.water,
+                label: 'Nutrients',
+                value: mqtt.nutrientPPM.toStringAsFixed(0),
+                unit: 'ppm',
                 color: Colors.green,
               ),
-              _buildSensorCard(
-                icon: Icons.local_drink,
-                label: 'Nutrient B',
-                value: mqtt.nutrientB.toStringAsFixed(1),
-                unit: '%',
-                color: Colors.teal,
-              ),
             ],
+          ),
+
+          const SizedBox(height: 24),
+
+          // ✅ ADD: Schedule Button
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: () {
+                Navigator.pushNamed(context, '/schedule');
+              },
+              icon: const Icon(Icons.schedule),
+              label: const Text('Manage Schedules '),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF2E7D32),
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
           ),
 
           const SizedBox(height: 20),
@@ -219,7 +236,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   // ============================================
-  // Sensor Card Widget
+  // Sensor Card Widget (UPDATED - Add navigation)
   // ============================================
   Widget _buildSensorCard({
     required IconData icon,
@@ -228,65 +245,82 @@ class _HomeScreenState extends State<HomeScreen> {
     required String unit,
     required Color color,
   }) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            icon,
-            size: 32,
-            color: color,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 12,
-              color: Colors.grey,
-              fontWeight: FontWeight.w500,
+    return GestureDetector(
+      onTap: () {
+        // ✅ Navigate to sensor detail page
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => SensorDetailScreen(
+              sensorName: label,
+              sensorUnit: unit,
+              sensorIcon: icon,
+              sensorColor: color,
+              currentValue: value,
             ),
-            textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 4),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                value,
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: color,
-                ),
+        );
+      },
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              icon,
+              size: 32,
+              color: color,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 12,
+                color: Colors.grey,
+                fontWeight: FontWeight.w500,
               ),
-              if (unit.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(left: 4, bottom: 2),
-                  child: Text(
-                    unit,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: color.withOpacity(0.7),
-                      fontWeight: FontWeight.w500,
-                    ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 4),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: color,
                   ),
                 ),
-            ],
-          ),
-        ],
+                if (unit.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 4, bottom: 2),
+                    child: Text(
+                      unit,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: color.withOpacity(0.7),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
