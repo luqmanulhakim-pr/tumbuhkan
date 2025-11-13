@@ -1,79 +1,85 @@
 import 'package:flutter/material.dart';
 
 class AppTheme {
-  // Color Palette - Tema Hydroponics (Hijau & Natural)
-  static const Color primaryGreen = Color(0xFF2E7D32); // Dark Green
-  static const Color secondaryGreen = Color(0xFF66BB6A); // Light Green
-  static const Color accentBlue = Color(0xFF1976D2); // Blue (water)
-  static const Color backgroundColor = Color(0xFFF1F8E9); // Light green bg
-  static const Color cardColor = Color(0xFFFFFFFF); // White
-  static const Color textPrimary = Color(0xFF212121); // Dark text
-  static const Color textSecondary = Color(0xFF757575); // Gray text
-  static const Color errorColor = Color(0xFFD32F2F); // Red
-  static const Color successColor = Color(0xFF388E3C); // Green
+  // ============================================
+  // Color Palette - BLUE THEME
+  // ============================================
+  static const Color primaryColor = Color(0xFF1976D2); // ✅ Blue
+  static const Color primaryDark = Color(0xFF0D47A1);
+  static const Color primaryLight = Color(0xFF42A5F5);
+  static const Color accentColor = Color(0xFF03A9F4);
 
-  static ThemeData get lightTheme {
-    return ThemeData(
-      useMaterial3: true,
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: primaryGreen,
-        primary: primaryGreen,
-        secondary: secondaryGreen,
-        surface: backgroundColor, // GANTI background jadi surface
-        error: errorColor,
+  static const Color backgroundColor = Color(0xFFF5F5F5);
+  static const Color cardColor = Colors.white;
+  static const Color textPrimary = Color(0xFF212121);
+  static const Color textSecondary = Color(0xFF757575);
+
+  // Sensor Colors (keep as is)
+  static const Color temperatureColor = Color(0xFFFF9800); // Orange
+  static const Color humidityColor = Color(0xFF2196F3); // Blue
+  static const Color moistureColor = Color(0xFF8D6E63); // Brown
+  static const Color lightColor = Color(0xFFFFC107); // Amber
+  static const Color phColor = Color(0xFF9C27B0); // Purple
+  static const Color nutrientColor = Color(0xFF4CAF50); // Green
+
+  // ============================================
+  // Light Theme
+  // ============================================
+  static ThemeData lightTheme = ThemeData(
+    useMaterial3: true,
+    colorScheme: ColorScheme.fromSeed(
+      seedColor: primaryColor,
+      primary: primaryColor,
+      secondary: accentColor,
+      surface: cardColor,
+      background: backgroundColor,
+    ),
+    scaffoldBackgroundColor: backgroundColor,
+    appBarTheme: const AppBarTheme(
+      backgroundColor: Colors.white,
+      foregroundColor: primaryColor,
+      elevation: 0,
+      centerTitle: false,
+      iconTheme: IconThemeData(color: primaryColor),
+      titleTextStyle: TextStyle(
+        color: primaryColor,
+        fontSize: 20,
+        fontWeight: FontWeight.bold,
       ),
-      scaffoldBackgroundColor: backgroundColor,
-
-      // AppBar Theme
-      appBarTheme: const AppBarTheme(
-        backgroundColor: primaryGreen,
+    ),
+    elevatedButtonTheme: ElevatedButtonThemeData(
+      style: ElevatedButton.styleFrom(
+        backgroundColor: primaryColor,
         foregroundColor: Colors.white,
-        elevation: 0,
-        centerTitle: true,
-      ),
-
-      // Card Theme
-      cardTheme: CardThemeData(
-        color: cardColor,
         elevation: 2,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
         ),
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
       ),
-
-      // Button Theme
-      elevatedButtonTheme: ElevatedButtonThemeData(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: primaryGreen,
-          foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
-        ),
+    ),
+    floatingActionButtonTheme: const FloatingActionButtonThemeData(
+      backgroundColor: primaryColor,
+      foregroundColor: Colors.white,
+    ),
+    cardTheme: CardThemeData(
+      color: cardColor,
+      elevation: 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
       ),
-
-      // Text Theme
-      textTheme: const TextTheme(
-        headlineLarge: TextStyle(
-          fontSize: 32,
-          fontWeight: FontWeight.bold,
-          color: textPrimary,
-        ),
-        headlineMedium: TextStyle(
-          fontSize: 24,
-          fontWeight: FontWeight.bold,
-          color: textPrimary,
-        ),
-        bodyLarge: TextStyle(
-          fontSize: 16,
-          color: textPrimary,
-        ),
-        bodyMedium: TextStyle(
-          fontSize: 14,
-          color: textSecondary,
-        ),
+    ),
+    inputDecorationTheme: InputDecorationTheme(
+      filled: true,
+      fillColor: Colors.white,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: Colors.grey[300]!),
       ),
-    );
-  }
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: primaryColor, width: 2),
+      ),
+    ),
+  );
 }

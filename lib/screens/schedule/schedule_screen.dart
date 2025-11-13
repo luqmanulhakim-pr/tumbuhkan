@@ -13,15 +13,19 @@ class ScheduleScreen extends StatefulWidget {
 }
 
 class _ScheduleScreenState extends State<ScheduleScreen> {
-  final int _selectedIndex = 3; // Schedule tab (will add to nav bar)
+  final int _selectedIndex = 1; // ✅ CHANGE: Home tab (bukan 3)
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF2E7D32),
+        backgroundColor: const Color(0xFF1976D2),
         elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
         title: const Text(
           'Schedule',
           style: TextStyle(
@@ -55,21 +59,19 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showAddScheduleDialog(context),
-        backgroundColor: const Color(0xFF2E7D32),
+        backgroundColor: const Color(0xFF1976D2),
         icon: const Icon(Icons.add),
         label: const Text('Add Schedule'),
       ),
       bottomNavigationBar: CustomBottomNavBar(
         currentIndex: _selectedIndex,
         onTap: (index) {
-          if (index != _selectedIndex) {
-            if (index == 0) {
-              Navigator.pushReplacementNamed(context, '/camera');
-            } else if (index == 1) {
-              Navigator.pushReplacementNamed(context, '/home');
-            } else if (index == 2) {
-              Navigator.pushReplacementNamed(context, '/controller');
-            }
+          if (index == 0) {
+            Navigator.pushReplacementNamed(context, '/camera');
+          } else if (index == 1) {
+            Navigator.pushReplacementNamed(context, '/home');
+          } else if (index == 2) {
+            Navigator.pushReplacementNamed(context, '/controller');
           }
         },
       ),
@@ -112,7 +114,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
             icon: const Icon(Icons.add),
             label: const Text('Add Schedule'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF2E7D32),
+              backgroundColor: const Color(0xFF1976D2), // ✅ Blue
               padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
             ),
           ),

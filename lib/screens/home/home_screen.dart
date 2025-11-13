@@ -66,7 +66,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   // ============================================
-  // Header
+  // Header (UPDATED - Blue theme)
   // ============================================
   Widget _buildHeader(MqttService mqtt) {
     return Container(
@@ -94,12 +94,12 @@ class _HomeScreenState extends State<HomeScreen> {
                     style: TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFF2E7D32),
+                      color: Color(0xFF1976D2), // ✅ Blue
                     ),
                   ),
                   SizedBox(height: 4),
                   Text(
-                    'Smart Hydroponics Dashboard',
+                    'Smart Hydroponics System',
                     style: TextStyle(
                       fontSize: 12,
                       color: Colors.grey,
@@ -110,7 +110,7 @@ class _HomeScreenState extends State<HomeScreen> {
               IconButton(
                 icon: const Icon(Icons.refresh),
                 onPressed: () => mqtt.connect(),
-                color: const Color(0xFF2E7D32),
+                color: const Color(0xFF1976D2), // ✅ Blue
               ),
             ],
           ),
@@ -210,7 +210,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
           const SizedBox(height: 24),
 
-          // ✅ ADD: Schedule Button
+          // ✅ UPDATE: Schedule Button (Blue color)
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
@@ -218,9 +218,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 Navigator.pushNamed(context, '/schedule');
               },
               icon: const Icon(Icons.schedule),
-              label: const Text('Manage Schedules '),
+              label: const Text('Manage Schedules'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF2E7D32),
+                backgroundColor: const Color(0xFF1976D2), // ✅ Blue
+                foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),

@@ -1,63 +1,82 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../services/mqtt_service.dart';
-import '../../services/mqtt_connection_state.dart';
 
 class ConnectionStatusIndicator extends StatelessWidget {
   const ConnectionStatusIndicator({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final mqttService = Provider.of<MqttService>(context);
+    final mqtt = Provider.of<MqttService>(context);
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
-        color: _getBackgroundColor(mqttService.connectionState),
-        borderRadius: BorderRadius.circular(20),
+        color: mqtt.isConnected
+            ? const Color(0xFF1976D2).withOpacity(0.1) // ✅ Blue background
+            : mqtt.hasError
+                ? Colors.red[50]
+                : Colors.orange[50],
+        borderRadius: BorderRadius.circular(25),
+        border: Border.all(
+          color: mqtt.isConnected
+              ? const Color(0xFF1976D2) // ✅ Blue border
+              : mqtt.hasError
+                  ? Colors.red
+                  : Colors.orange,
+          width: 1.5,
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            mqttService.connectionState.emoji,
-            style: const TextStyle(fontSize: 12),
-          ),
-          const SizedBox(width: 6),
-          Text(
-            mqttService.connectionState.displayName,
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: Colors.white,
+          // Status Icon
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: mqtt.isConnected
+                  ? const Color(0xFF1976D2) // ✅ Blue dot
+                  : mqtt.hasError
+                      ? Colors.red
+                      : Colors.orange,
             ),
           ),
-          if (mqttService.isConnecting) ...[
+          const SizedBox(width: 10),
+
+          // Status Text
+          Text(
+            mqtt.isConnected
+                ? 'Connected'
+                : mqtt.hasError
+                    ? 'Connection Error'
+                    : 'Reconnecting...',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: mqtt.isConnected
+                  ? const Color(0xFF1976D2) // ✅ Blue text
+                  : mqtt.hasError
+                      ? Colors.red[700]
+                      : Colors.orange[700],
+            ),
+          ),
+
+          // Loading indicator (when reconnecting)
+          if (!mqtt.isConnected && !mqtt.hasError) ...[
             const SizedBox(width: 8),
-            const SizedBox(
+            SizedBox(
               width: 12,
               height: 12,
               child: CircularProgressIndicator(
                 strokeWidth: 2,
-                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.orange[700]!),
               ),
             ),
           ],
         ],
       ),
     );
-  }
-
-  Color _getBackgroundColor(AppMqttConnectionState state) {
-    switch (state) {
-      case AppMqttConnectionState.connected:
-        return const Color(0xFF4CAF50);
-      case AppMqttConnectionState.connecting:
-        return const Color(0xFFFFC107);
-      case AppMqttConnectionState.disconnected:
-        return const Color(0xFF9E9E9E);
-      case AppMqttConnectionState.error:
-        return const Color(0xFFF44336);
-    }
   }
 }

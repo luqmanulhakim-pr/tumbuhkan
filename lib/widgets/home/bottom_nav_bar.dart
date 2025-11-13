@@ -23,59 +23,28 @@ class CustomBottomNavBar extends StatelessWidget {
           ),
         ],
       ),
-      child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _buildNavItem(
-                icon: Icons.camera_alt,
-                index: 0,
-                label: 'Camera',
-              ),
-              _buildNavItem(
-                icon: Icons.home,
-                index: 1,
-                label: 'Home',
-              ),
-              _buildNavItem(
-                icon: Icons.gamepad,
-                index: 2,
-                label: 'Control',
-              ),
-            ],
+      child: BottomNavigationBar(
+        currentIndex: currentIndex,
+        onTap: onTap,
+        type: BottomNavigationBarType.fixed,
+        backgroundColor: Colors.white,
+        selectedItemColor: const Color(0xFF1976D2), // ✅ Blue
+        unselectedItemColor: Colors.grey,
+        selectedFontSize: 12,
+        unselectedFontSize: 12,
+        elevation: 0,
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.camera_alt),
+            label: 'Camera',
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildNavItem({
-    required IconData icon,
-    required int index,
-    required String label,
-  }) {
-    final isSelected = currentIndex == index;
-
-    return GestureDetector(
-      onTap: () => onTap(index),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            icon,
-            color: isSelected ? const Color(0xFF2E7D32) : Colors.grey,
-            size: 28,
+          BottomNavigationBarItem(
+            icon: Icon(Icons.home),
+            label: 'Home',
           ),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              color: isSelected ? const Color(0xFF2E7D32) : Colors.grey,
-              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-            ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.settings_remote),
+            label: 'Control',
           ),
         ],
       ),

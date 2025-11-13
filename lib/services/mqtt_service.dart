@@ -18,15 +18,9 @@ class MqttService extends ChangeNotifier {
   double _moistureLevel = 0.0;
   double _lightLevel = 0.0;
   double _phLevel = 0.0;
-
-  // ✅ CHANGED: Single PPM value (dari TDS sensor)
   double _nutrientPPM = 0.0;
 
-  // ✅ REMOVED: Separate nutrient A/B sensor values
-  // double _nutrientA = 0.0;
-  // double _nutrientB = 0.0;
-
-  // Actuator States (tetap terpisah untuk control)
+  // Actuator States
   bool _isPumpOn = false;
   bool _isGrowLightOn = false;
   bool _isPhUpPumpOn = false;
@@ -56,11 +50,9 @@ class MqttService extends ChangeNotifier {
   double get moistureLevel => _moistureLevel;
   double get lightLevel => _lightLevel;
   double get phLevel => _phLevel;
-
-  // ✅ CHANGED: Single PPM getter
   double get nutrientPPM => _nutrientPPM;
 
-  // Actuator Getters (tetap ada untuk control)
+  // Actuator Getters
   bool get isPumpOn => _isPumpOn;
   bool get isGrowLightOn => _isGrowLightOn;
   bool get isPhUpPumpOn => _isPhUpPumpOn;
@@ -73,7 +65,7 @@ class MqttService extends ChangeNotifier {
   // ============================================
   Future<void> connect() async {
     if (_connectionState == AppMqttConnectionState.connecting) {
-      debugPrint('⚠️ Already connecting...');
+      debugPrint('Already connecting...');
       return;
     }
 
@@ -89,14 +81,14 @@ class MqttService extends ChangeNotifier {
       client.keepAlivePeriod = 60;
       client.logging(on: false);
 
-      debugPrint('🔌 Connecting to ${AppConstants.mqttBrokerUrl}...');
+      debugPrint('Connecting to ${AppConstants.mqttBrokerUrl}...');
 
       await client.connect();
 
       if (client.connectionStatus?.state == MqttConnectionState.connected) {
         _connectionState = AppMqttConnectionState.connected;
         _reconnectAttempts = 0;
-        debugPrint('✅ Connected!');
+        debugPrint('Connected successfully');
 
         _subscribeToTopics();
         _setupListener();
@@ -108,13 +100,13 @@ class MqttService extends ChangeNotifier {
     } catch (e) {
       _connectionState = AppMqttConnectionState.error;
       _lastError = e.toString();
-      debugPrint('❌ Error: $e');
+      debugPrint('Connection error: $e');
       notifyListeners();
 
       _reconnectAttempts++;
       if (_reconnectAttempts < AppConstants.maxReconnectAttempts) {
         debugPrint(
-            '🔄 Retrying in 5s... ($_reconnectAttempts/${AppConstants.maxReconnectAttempts})');
+            'Retrying in 5 seconds... (Attempt $_reconnectAttempts/${AppConstants.maxReconnectAttempts})');
         Future.delayed(const Duration(seconds: 5), connect);
       }
     }
@@ -124,7 +116,7 @@ class MqttService extends ChangeNotifier {
   // Subscribe to Topics
   // ============================================
   void _subscribeToTopics() {
-    debugPrint('📡 Subscribing to topics...');
+    debugPrint('Subscribing to topics...');
 
     // Sensor topics
     client.subscribe(AppConstants.topicTemperature, MqttQos.atMostOnce);
@@ -132,11 +124,9 @@ class MqttService extends ChangeNotifier {
     client.subscribe(AppConstants.topicMoisture, MqttQos.atMostOnce);
     client.subscribe(AppConstants.topicLight, MqttQos.atMostOnce);
     client.subscribe(AppConstants.topicPH, MqttQos.atMostOnce);
-
-    // ✅ CHANGED: Subscribe to single PPM topic
     client.subscribe(AppConstants.topicNutrientPPM, MqttQos.atMostOnce);
 
-    // Actuator status topics (tetap terpisah)
+    // Actuator status topics
     client.subscribe(AppConstants.topicPumpStatus, MqttQos.atMostOnce);
     client.subscribe(AppConstants.topicGrowLightStatus, MqttQos.atMostOnce);
     client.subscribe(AppConstants.topicPhUpPumpStatus, MqttQos.atMostOnce);
@@ -144,7 +134,7 @@ class MqttService extends ChangeNotifier {
     client.subscribe(AppConstants.topicNutrientAPumpStatus, MqttQos.atMostOnce);
     client.subscribe(AppConstants.topicNutrientBPumpStatus, MqttQos.atMostOnce);
 
-    debugPrint('✅ Subscribed to all topics');
+    debugPrint('Subscribed to all topics successfully');
   }
 
   // ============================================
@@ -159,7 +149,7 @@ class MqttService extends ChangeNotifier {
         payload.payload.message,
       );
 
-      debugPrint('📨 $topic = $value');
+      debugPrint('Received: $topic = $value');
 
       _handleMessage(topic, value);
     });
@@ -171,6 +161,7 @@ class MqttService extends ChangeNotifier {
   void _handleMessage(String topic, String value) {
     try {
       switch (topic) {
+        // Sensor data handling
         case AppConstants.topicTemperature:
           _temperature = double.parse(value);
           break;
@@ -186,13 +177,11 @@ class MqttService extends ChangeNotifier {
         case AppConstants.topicPH:
           _phLevel = double.parse(value);
           break;
-
-        // ✅ CHANGED: Handle single PPM value
         case AppConstants.topicNutrientPPM:
           _nutrientPPM = double.parse(value);
           break;
 
-        // Actuator status (tetap terpisah)
+        // Actuator status handling
         case AppConstants.topicPumpStatus:
           _isPumpOn = value == '1' || value.toLowerCase() == 'true';
           break;
@@ -215,7 +204,7 @@ class MqttService extends ChangeNotifier {
 
       notifyListeners();
     } catch (e) {
-      debugPrint('⚠️ Parse error: $e');
+      debugPrint('Error parsing message: $e');
     }
   }
 
@@ -224,17 +213,19 @@ class MqttService extends ChangeNotifier {
   // ============================================
   void publish(String topic, String message) {
     if (!isConnected) {
-      debugPrint('⚠️ Not connected');
+      debugPrint('Cannot publish: Not connected to broker');
       return;
     }
 
     final builder = MqttClientPayloadBuilder();
     builder.addString(message);
     client.publishMessage(topic, MqttQos.atMostOnce, builder.payload!);
-    debugPrint('📤 Published: $topic = $message');
+    debugPrint('Published: $topic = $message');
   }
 
-  // Control Methods (tetap terpisah untuk A dan B)
+  // ============================================
+  // Actuator Control Methods
+  // ============================================
   void setPump(bool status) => publish(
         AppConstants.topicPumpControl,
         status ? '1' : '0',

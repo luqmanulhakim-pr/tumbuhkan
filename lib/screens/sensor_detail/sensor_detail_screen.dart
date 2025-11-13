@@ -129,14 +129,17 @@ class SensorDetailScreen extends StatelessWidget {
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [sensorColor, sensorColor.withOpacity(0.7)],
+          colors: [
+            const Color(0xFF1976D2), // ✅ Blue
+            const Color(0xFF42A5F5), // ✅ Light Blue
+          ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: sensorColor.withOpacity(0.3),
+            color: const Color(0xFF1976D2).withOpacity(0.3), // ✅ Blue shadow
             blurRadius: 15,
             offset: const Offset(0, 5),
           ),

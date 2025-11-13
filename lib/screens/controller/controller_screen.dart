@@ -124,15 +124,17 @@ class _ControllerScreenState extends State<ControllerScreen> {
 
                     const SizedBox(height: 20),
 
-                    // Info Card
+                    // Info Card (UPDATED - Blue theme)
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: Colors.blue[50],
+                        color: const Color(0xFF1976D2)
+                            .withOpacity(0.1), // ✅ Blue background
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: Colors.blue[200]!,
+                          color: const Color(0xFF1976D2)
+                              .withOpacity(0.3), // ✅ Blue border
                           width: 1,
                         ),
                       ),
@@ -140,16 +142,17 @@ class _ControllerScreenState extends State<ControllerScreen> {
                         children: [
                           Icon(
                             Icons.info_outline,
-                            color: Colors.blue[700],
+                            color: const Color(0xFF1976D2), // ✅ Blue icon
                             size: 20,
                           ),
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text(
-                              'Tap cards to toggle actuators. Green border indicates active state.',
+                              'Tap cards to toggle actuators. Blue border indicates active state.',
                               style: TextStyle(
                                 fontSize: 11,
-                                color: Colors.blue[900],
+                                color:
+                                    const Color(0xFF0D47A1), // ✅ Dark blue text
                                 height: 1.3,
                               ),
                             ),
@@ -182,11 +185,11 @@ class _ControllerScreenState extends State<ControllerScreen> {
   }
 
   // ============================================
-  // Header
+  // Header (UPDATED - Blue theme)
   // ============================================
   Widget _buildHeader(MqttService mqtt) {
     return Container(
-      padding: const EdgeInsets.all(16), // ✅ Reduced padding
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
         boxShadow: [
@@ -208,9 +211,9 @@ class _ControllerScreenState extends State<ControllerScreen> {
                   Text(
                     'Controller',
                     style: TextStyle(
-                      fontSize: 22, // ✅ Reduced font size
+                      fontSize: 22,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFF2E7D32),
+                      color: Color(0xFF1976D2), // ✅ Blue
                     ),
                   ),
                   SizedBox(height: 2),
@@ -226,7 +229,7 @@ class _ControllerScreenState extends State<ControllerScreen> {
               IconButton(
                 icon: const Icon(Icons.refresh),
                 onPressed: () => mqtt.connect(),
-                color: const Color(0xFF2E7D32),
+                color: const Color(0xFF1976D2), // ✅ Blue
                 iconSize: 24,
               ),
             ],
@@ -239,7 +242,7 @@ class _ControllerScreenState extends State<ControllerScreen> {
   }
 
   // ============================================
-  // Control Card Widget (FIXED - Better proportions)
+  // Control Card Widget (UPDATED - Blue active state)
   // ============================================
   Widget _buildControlCard({
     required IconData icon,
@@ -252,18 +255,20 @@ class _ControllerScreenState extends State<ControllerScreen> {
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.all(12), // ✅ Reduced padding
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: isActive ? const Color(0xFF2E7D32) : Colors.transparent,
-            width: 2.5, // ✅ Slightly thinner border
+            color: isActive
+                ? const Color(0xFF1976D2)
+                : Colors.transparent, // ✅ Blue
+            width: 2.5,
           ),
           boxShadow: [
             BoxShadow(
               color: isActive
-                  ? const Color(0xFF2E7D32).withOpacity(0.2)
+                  ? const Color(0xFF1976D2).withOpacity(0.2) // ✅ Blue shadow
                   : Colors.black.withOpacity(0.05),
               blurRadius: isActive ? 10 : 6,
               offset: const Offset(0, 2),
@@ -275,42 +280,48 @@ class _ControllerScreenState extends State<ControllerScreen> {
           children: [
             // Icon with background
             Container(
-              padding: const EdgeInsets.all(10), // ✅ Reduced padding
+              padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
                 color: isActive
-                    ? const Color(0xFF2E7D32).withOpacity(0.1)
+                    ? const Color(0xFF1976D2)
+                        .withOpacity(0.1) // ✅ Blue background
                     : color.withOpacity(0.1),
                 shape: BoxShape.circle,
               ),
               child: Icon(
                 icon,
-                size: 28, // ✅ Reduced icon size
-                color: isActive ? const Color(0xFF2E7D32) : color,
+                size: 28,
+                color:
+                    isActive ? const Color(0xFF1976D2) : color, // ✅ Blue icon
               ),
             ),
-            const SizedBox(height: 8), // ✅ Reduced spacing
+            const SizedBox(height: 8),
 
             // Label
             Text(
               label,
               style: TextStyle(
-                fontSize: 13, // ✅ Reduced font size
+                fontSize: 13,
                 fontWeight: FontWeight.w600,
-                color: isActive ? const Color(0xFF2E7D32) : Colors.black87,
+                color: isActive
+                    ? const Color(0xFF1976D2)
+                    : Colors.black87, // ✅ Blue text
               ),
               textAlign: TextAlign.center,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
-            const SizedBox(height: 3), // ✅ Reduced spacing
+            const SizedBox(height: 3),
 
             // Status
             Text(
               isActive ? 'ON' : 'OFF',
               style: TextStyle(
-                fontSize: 10, // ✅ Reduced font size
+                fontSize: 10,
                 fontWeight: FontWeight.bold,
-                color: isActive ? const Color(0xFF2E7D32) : Colors.grey,
+                color: isActive
+                    ? const Color(0xFF1976D2)
+                    : Colors.grey, // ✅ Blue status
               ),
             ),
           ],
