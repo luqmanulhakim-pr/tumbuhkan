@@ -5,7 +5,7 @@ import '../../services/mqtt_service.dart';
 import '../../widgets/home/bottom_nav_bar.dart';
 import '../controller/controller_screen.dart';
 import '../camera/camera_screen.dart';
-import '../monitoring/monitoring_screen.dart'; // ✅ Import Monitoring Screen
+import '../monitoring/monitoring_screen.dart';
 import '../sensor_detail/sensor_detail_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -19,12 +19,11 @@ class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
   bool _isInitialized = false;
 
-  // ✅ FIXED: 4 screens sesuai bottom nav
   final List<Widget> _screens = [
-    const _DashboardScreen(), // Index 0: Home
-    const ControllerScreen(), // Index 1: Controller
-    const CameraScreen(), // Index 2: Camera
-    const MonitoringScreen(), // Index 3: Monitoring
+    const _DashboardScreen(),
+    const ControllerScreen(),
+    const CameraScreen(),
+    const MonitoringScreen(),
   ];
 
   @override
@@ -60,7 +59,7 @@ class _HomeScreenState extends State<HomeScreen> {
 }
 
 // ============================================
-// Dashboard Screen (Nested Navigation)
+// Dashboard Screen
 // ============================================
 class _DashboardScreen extends StatelessWidget {
   const _DashboardScreen();
@@ -81,9 +80,6 @@ class _DashboardScreen extends StatelessWidget {
     );
   }
 
-  // ============================================
-  // Header
-  // ============================================
   Widget _buildHeader(BuildContext context, MqttService mqtt) {
     return Container(
       padding: const EdgeInsets.all(20),
@@ -137,15 +133,16 @@ class _DashboardScreen extends StatelessWidget {
     );
   }
 
-  // ============================================
-  // Dashboard
-  // ============================================
   Widget _buildDashboard(BuildContext context, MqttService mqtt) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // ✅ Water Status Card (hasil klasifikasi)
+          _buildWaterStatusCard(mqtt),
+          const SizedBox(height: 20),
+
           // Sensor Data Section
           const Text(
             'Sensor Data',
@@ -157,7 +154,7 @@ class _DashboardScreen extends StatelessWidget {
           ),
           const SizedBox(height: 16),
 
-          // Sensor Cards
+          // ✅ UPDATED: Sensor Cards dengan data baru
           GridView.count(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
@@ -169,32 +166,24 @@ class _DashboardScreen extends StatelessWidget {
               _buildSensorCard(
                 context,
                 icon: Icons.thermostat,
-                label: 'Temperature',
-                value: mqtt.temperature.toStringAsFixed(1),
+                label: 'Air Temperature',
+                value: mqtt.airTemperature.toStringAsFixed(1),
                 unit: '°C',
                 color: Colors.orange,
               ),
               _buildSensorCard(
                 context,
                 icon: Icons.water_drop,
-                label: 'Humidity',
-                value: mqtt.humidity.toStringAsFixed(1),
+                label: 'Air Humidity',
+                value: mqtt.airHumidity.toStringAsFixed(1),
                 unit: '%',
                 color: Colors.blue,
               ),
               _buildSensorCard(
                 context,
-                icon: Icons.grass,
-                label: 'Moisture',
-                value: mqtt.moistureLevel.toStringAsFixed(1),
-                unit: '%',
-                color: Colors.brown,
-              ),
-              _buildSensorCard(
-                context,
                 icon: Icons.light_mode,
-                label: 'Light',
-                value: mqtt.lightLevel.toStringAsFixed(0),
+                label: 'Light (LDR)',
+                value: mqtt.ldrValue.toStringAsFixed(0),
                 unit: 'lux',
                 color: Colors.amber,
               ),
@@ -202,24 +191,48 @@ class _DashboardScreen extends StatelessWidget {
                 context,
                 icon: Icons.science,
                 label: 'pH Level',
-                value: mqtt.phLevel.toStringAsFixed(1),
+                value: mqtt.ph.toStringAsFixed(2),
                 unit: '',
                 color: Colors.purple,
               ),
               _buildSensorCard(
                 context,
                 icon: Icons.water,
-                label: 'Nutrients',
-                value: mqtt.nutrientPPM.toStringAsFixed(0),
+                label: 'TDS (Nutrients)',
+                value: mqtt.tds.toStringAsFixed(0),
                 unit: 'ppm',
                 color: Colors.green,
+              ),
+              _buildSensorCard(
+                context,
+                icon: Icons.waves,
+                label: 'Water Flow',
+                value: mqtt.waterFlow.toStringAsFixed(1),
+                unit: 'L/min',
+                color: Colors.cyan,
+              ),
+              _buildSensorCard(
+                context,
+                icon: Icons.device_thermostat,
+                label: 'Water Temp',
+                value: mqtt.waterTemperature.toStringAsFixed(1),
+                unit: '°C',
+                color: Colors.teal,
+              ),
+              _buildSensorCard(
+                context,
+                icon: Icons.height,
+                label: 'Water Level',
+                value: mqtt.waterLevel.toStringAsFixed(1),
+                unit: '%',
+                color: Colors.indigo,
               ),
             ],
           ),
 
           const SizedBox(height: 24),
 
-          // ✅ Schedule Button (navigasi tanpa bottom nav)
+          // Schedule Button
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
@@ -245,9 +258,72 @@ class _DashboardScreen extends StatelessWidget {
     );
   }
 
-  // ============================================
-  // Sensor Card Widget
-  // ============================================
+  // ✅ NEW: Water Status Card
+  Widget _buildWaterStatusCard(MqttService mqtt) {
+    Color statusColor;
+    IconData statusIcon;
+
+    switch (mqtt.waterStatus.toLowerCase()) {
+      case 'optimal':
+      case 'good':
+        statusColor = Colors.green;
+        statusIcon = Icons.check_circle;
+        break;
+      case 'warning':
+        statusColor = Colors.orange;
+        statusIcon = Icons.warning;
+        break;
+      case 'critical':
+      case 'bad':
+        statusColor = Colors.red;
+        statusIcon = Icons.error;
+        break;
+      default:
+        statusColor = Colors.grey;
+        statusIcon = Icons.help_outline;
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: statusColor.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: statusColor, width: 2),
+      ),
+      child: Row(
+        children: [
+          Icon(statusIcon, size: 48, color: statusColor),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Water Quality Status',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey[700],
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  mqtt.waterStatus,
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: statusColor,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildSensorCard(
     BuildContext context, {
     required IconData icon,
@@ -287,11 +363,7 @@ class _DashboardScreen extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              icon,
-              size: 32,
-              color: color,
-            ),
+            Icon(icon, size: 32, color: color),
             const SizedBox(height: 8),
             Text(
               label,
@@ -307,12 +379,15 @@ class _DashboardScreen extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                Text(
-                  value,
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: color,
+                Flexible(
+                  child: Text(
+                    value,
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: color,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 if (unit.isNotEmpty)

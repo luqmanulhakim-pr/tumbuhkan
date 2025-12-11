@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:convert'; // ✅ ADD: Import untuk JSON parsing
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:mqtt_client/mqtt_client.dart';
 import 'package:mqtt_client/mqtt_server_client.dart';
@@ -14,12 +14,15 @@ class MqttService extends ChangeNotifier {
   AppMqttConnectionState _connectionState = AppMqttConnectionState.disconnected;
 
   // Sensor Data
-  double _temperature = 0.0;
-  double _humidity = 0.0;
-  double _moistureLevel = 0.0;
-  double _lightLevel = 0.0;
-  double _phLevel = 0.0;
-  double _nutrientPPM = 0.0;
+  double _ph = 0.0;
+  double _tds = 0.0;
+  double _waterFlow = 0.0;
+  double _airHumidity = 0.0;
+  double _airTemperature = 0.0;
+  double _ldrValue = 0.0;
+  double _waterTemperature = 0.0;
+  double _waterLevel = 0.0;
+  String _waterStatus = 'Unknown';
 
   // Actuator States
   bool _isPumpOn = false;
@@ -31,14 +34,20 @@ class MqttService extends ChangeNotifier {
 
   String _lastError = '';
   int _reconnectAttempts = 0;
-
-  // ✅ NEW: Heartbeat tracking
   DateTime _lastMessageTime = DateTime.now();
   Timer? _heartbeatTimer;
 
-  // ============================================
-  // Getters (tidak berubah)
-  // ============================================
+  // Getters
+  double get ph => _ph;
+  double get tds => _tds;
+  double get waterFlow => _waterFlow;
+  double get airHumidity => _airHumidity;
+  double get airTemperature => _airTemperature;
+  double get ldrValue => _ldrValue;
+  double get waterTemperature => _waterTemperature;
+  double get waterLevel => _waterLevel;
+  String get waterStatus => _waterStatus;
+
   AppMqttConnectionState get connectionState => _connectionState;
   bool get isConnected => _connectionState == AppMqttConnectionState.connected;
   bool get isConnecting =>
@@ -49,15 +58,6 @@ class MqttService extends ChangeNotifier {
   String get lastError => _lastError;
   int get reconnectAttempts => _reconnectAttempts;
 
-  // Sensor Getters
-  double get temperature => _temperature;
-  double get humidity => _humidity;
-  double get moistureLevel => _moistureLevel;
-  double get lightLevel => _lightLevel;
-  double get phLevel => _phLevel;
-  double get nutrientPPM => _nutrientPPM;
-
-  // Actuator Getters
   bool get isPumpOn => _isPumpOn;
   bool get isGrowLightOn => _isGrowLightOn;
   bool get isPhUpPumpOn => _isPhUpPumpOn;
@@ -66,7 +66,7 @@ class MqttService extends ChangeNotifier {
   bool get isNutrientBPumpOn => _isNutrientBPumpOn;
 
   // ============================================
-  // Connect Method
+  // ✅ FIXED: Connect Method dengan protocol yang benar
   // ============================================
   Future<void> connect() async {
     if (_connectionState == AppMqttConnectionState.connecting) {
@@ -78,30 +78,56 @@ class MqttService extends ChangeNotifier {
       _connectionState = AppMqttConnectionState.connecting;
       notifyListeners();
 
-      client = MqttServerClient(
-        AppConstants.mqttBrokerUrl,
-        AppConstants.mqttClientId,
-      );
+      // Generate unique client ID
+      final uniqueClientId =
+          '${AppConstants.mqttClientId}_${DateTime.now().millisecondsSinceEpoch}';
+
+      client = MqttServerClient(AppConstants.mqttBrokerUrl, uniqueClientId);
       client.port = AppConstants.mqttPort;
       client.keepAlivePeriod = AppConstants.mqttKeepAlive;
-      client.logging(on: false);
+      client.logging(on: true);
+      client.autoReconnect = true;
+
+      // ✅ Set proper timeouts
+      client.connectTimeoutPeriod = 10000; // 10 seconds
 
       debugPrint('🔌 Menghubungkan ke ${AppConstants.mqttBrokerUrl}...');
+      debugPrint('   Client ID: $uniqueClientId');
 
-      await client.connect();
+      // ✅ FIXED: Use proper MQTT 3.1.1 protocol
+      final connMessage = MqttConnectMessage()
+          .withClientIdentifier(uniqueClientId)
+          .withWillTopic('tumbuhkan/status')
+          .withWillMessage('Flutter client disconnected')
+          .startClean() // Clean session
+          .withWillQos(MqttQos.atLeastOnce);
+
+      client.connectionMessage = connMessage;
+
+      // ✅ Connect with proper error handling
+      try {
+        await client.connect();
+      } on Exception catch (e) {
+        debugPrint('❌ Connection exception: $e');
+        client.disconnect();
+        throw e;
+      }
 
       if (client.connectionStatus?.state == MqttConnectionState.connected) {
         _connectionState = AppMqttConnectionState.connected;
         _reconnectAttempts = 0;
         debugPrint('✅ Terhubung ke MQTT broker');
+        debugPrint('   Return Code: ${client.connectionStatus?.returnCode}');
 
-        _subscribeToTopics();
         _setupListener();
-        _startHeartbeat(); // ✅ NEW: Mulai heartbeat checker
+        await Future.delayed(const Duration(milliseconds: 500));
+        _subscribeToTopics();
+        _startHeartbeat();
 
         notifyListeners();
       } else {
-        throw Exception('Koneksi gagal');
+        throw Exception('Koneksi gagal: ${client.connectionStatus?.state}\n'
+            'Return Code: ${client.connectionStatus?.returnCode}');
       }
     } catch (e) {
       _connectionState = AppMqttConnectionState.error;
@@ -112,9 +138,7 @@ class MqttService extends ChangeNotifier {
       _reconnectAttempts++;
       if (_reconnectAttempts < AppConstants.maxReconnectAttempts) {
         debugPrint(
-          '🔄 Mencoba lagi dalam ${AppConstants.reconnectDelay.inSeconds} detik... '
-          '(Percobaan $_reconnectAttempts/${AppConstants.maxReconnectAttempts})',
-        );
+            '🔄 Mencoba lagi dalam ${AppConstants.reconnectDelay.inSeconds} detik... (${_reconnectAttempts}/${AppConstants.maxReconnectAttempts})');
         Future.delayed(AppConstants.reconnectDelay, connect);
       } else {
         debugPrint('🚫 Batas maksimum percobaan koneksi tercapai');
@@ -123,7 +147,7 @@ class MqttService extends ChangeNotifier {
   }
 
   // ============================================
-  // ✅ NEW: Heartbeat Checker
+  // Heartbeat Checker (tidak berubah)
   // ============================================
   void _startHeartbeat() {
     _heartbeatTimer?.cancel();
@@ -131,12 +155,10 @@ class MqttService extends ChangeNotifier {
       final now = DateTime.now();
       final timeSinceLastMessage = now.difference(_lastMessageTime);
 
-      // Jika tidak ada pesan dalam 2 menit, reconnect
       if (timeSinceLastMessage > AppConstants.heartbeatTimeout) {
         debugPrint('💔 Heartbeat timeout - mencoba reconnect...');
         _connectionState = AppMqttConnectionState.error;
-        _lastError =
-            'Tidak ada data dari sensor dalam ${AppConstants.heartbeatTimeout.inMinutes} menit';
+        _lastError = 'Tidak ada data dari sensor';
         notifyListeners();
         connect();
       }
@@ -144,16 +166,14 @@ class MqttService extends ChangeNotifier {
   }
 
   // ============================================
-  // ✅ MODIFIED: Subscribe ke 1 Topic Sensor + Topic Actuator
+  // Subscribe Topics (tidak berubah)
   // ============================================
   void _subscribeToTopics() {
     debugPrint('📡 Berlangganan ke topic MQTT...');
 
-    // ✅ NEW: Subscribe ke single sensor topic
     client.subscribe(AppConstants.topicSensorData, MqttQos.atMostOnce);
-    debugPrint('  ✓ ${AppConstants.topicSensorData}');
+    debugPrint('  ✓ Subscribed: ${AppConstants.topicSensorData}');
 
-    // Actuator status topics (tidak berubah)
     client.subscribe(AppConstants.topicPumpStatus, MqttQos.atMostOnce);
     client.subscribe(AppConstants.topicGrowLightStatus, MqttQos.atMostOnce);
     client.subscribe(AppConstants.topicPhUpPumpStatus, MqttQos.atMostOnce);
@@ -165,21 +185,21 @@ class MqttService extends ChangeNotifier {
   }
 
   // ============================================
-  // Listen to Messages (tidak berubah)
+  // Setup Listener (tidak berubah)
   // ============================================
   void _setupListener() {
+    debugPrint('👂 Setting up MQTT listener...');
+
     client.updates?.listen(
-      (messages) {
-        final message = messages[0];
-        final payload = message.payload as MqttPublishMessage;
-        final topic = message.topic;
-        final value = MqttPublishPayload.bytesToStringAsString(
-          payload.payload.message,
-        );
+      (List<MqttReceivedMessage<MqttMessage>> messages) {
+        final MqttPublishMessage message =
+            messages[0].payload as MqttPublishMessage;
+        final String topic = messages[0].topic;
+        final String payload =
+            MqttPublishPayload.bytesToStringAsString(message.payload.message);
 
-        debugPrint('📩 Received: $topic');
-
-        _handleMessage(topic, value);
+        debugPrint('📨 Received: $topic -> $payload');
+        _handleMessage(topic, payload);
       },
       onError: (error) {
         debugPrint('❌ MQTT stream error: $error');
@@ -190,27 +210,26 @@ class MqttService extends ChangeNotifier {
       onDone: () {
         debugPrint('🔌 MQTT stream closed');
         if (_connectionState == AppMqttConnectionState.connected) {
-          connect(); // Auto-reconnect
+          connect();
         }
       },
     );
+
+    debugPrint('✅ Listener setup complete');
   }
 
   // ============================================
-  // ✅ MODIFIED: Handle JSON Payload untuk Sensor
+  // Handle Message (tidak berubah)
   // ============================================
   void _handleMessage(String topic, String value) {
-    // ✅ Update waktu terakhir menerima pesan
     _lastMessageTime = DateTime.now();
 
     try {
-      // ✅ NEW: Handle JSON sensor data
       if (topic == AppConstants.topicSensorData) {
         _handleSensorData(value);
         return;
       }
 
-      // Handle actuator status (tidak berubah)
       switch (topic) {
         case AppConstants.topicPumpStatus:
           _isPumpOn = value == '1' || value.toLowerCase() == 'true';
@@ -239,55 +258,48 @@ class MqttService extends ChangeNotifier {
   }
 
   // ============================================
-  // ✅ NEW: Parse JSON Sensor Data
+  // ✅ UPDATED: Parse JSON Sensor Data (struktur baru)
   // ============================================
   void _handleSensorData(String jsonString) {
     try {
       final Map<String, dynamic> data = json.decode(jsonString);
 
-      // Parse setiap field sensor
-      _temperature = _parseDouble(data['temperature']);
-      _humidity = _parseDouble(data['humidity']);
-      _moistureLevel = _parseDouble(data['moisture']);
-      _lightLevel = _parseDouble(data['light']);
-      _phLevel = _parseDouble(data['ph']);
-      _nutrientPPM = _parseDouble(data['ppm']);
+      _ph = _parseDouble(data['ph']);
+      _tds = _parseDouble(data['tds']);
+      _waterFlow = _parseDouble(data['water_flow']);
+      _airHumidity = _parseDouble(data['air_humidity']);
+      _airTemperature = _parseDouble(data['air_temperature']);
+      _ldrValue = _parseDouble(data['ldr_value']);
+      _waterTemperature = _parseDouble(data['water_temperature']);
+      _waterLevel = _parseDouble(data['water_level']);
+      _waterStatus = data['status']?.toString() ?? 'Unknown';
 
-      debugPrint('📊 Data sensor diperbarui:');
-      debugPrint('   🌡️  Suhu: ${_temperature.toStringAsFixed(1)}°C');
-      debugPrint('   💧 Kelembaban: ${_humidity.toStringAsFixed(1)}%');
       debugPrint(
-          '   🌱 Kelembaban Tanah: ${_moistureLevel.toStringAsFixed(1)}%');
-      debugPrint('   💡 Cahaya: ${_lightLevel.toStringAsFixed(0)} lux');
-      debugPrint('   ⚗️  pH: ${_phLevel.toStringAsFixed(2)}');
-      debugPrint('   🧪 PPM: ${_nutrientPPM.toStringAsFixed(0)}');
+          '📊 Data sensor updated: pH=${_ph.toStringAsFixed(2)}, TDS=${_tds.toStringAsFixed(0)}, Status=$_waterStatus');
 
       notifyListeners();
     } catch (e) {
-      debugPrint('❌ Error parsing JSON sensor data: $e');
-      debugPrint('   Payload: $jsonString');
+      debugPrint('❌ Error parsing JSON: $e');
     }
   }
 
   // ============================================
-  // ✅ NEW: Helper untuk Parse Double Aman
+  // Helper Parse Double (tidak berubah)
   // ============================================
   double _parseDouble(dynamic value) {
     if (value == null) return 0.0;
     if (value is double) return value;
     if (value is int) return value.toDouble();
-    if (value is String) {
-      return double.tryParse(value) ?? 0.0;
-    }
+    if (value is String) return double.tryParse(value) ?? 0.0;
     return 0.0;
   }
 
   // ============================================
-  // Publish Messages (tidak berubah)
+  // Publish Methods (tidak berubah)
   // ============================================
   void publish(String topic, String message) {
     if (!isConnected) {
-      debugPrint('⚠️  Tidak dapat publish: Belum terhubung ke broker');
+      debugPrint('⚠️ Tidak dapat publish: Belum terhubung ke broker');
       return;
     }
 
@@ -297,75 +309,47 @@ class MqttService extends ChangeNotifier {
     debugPrint('📤 Published: $topic = $message');
   }
 
+  void setPump(bool status) =>
+      publish(AppConstants.topicPumpControl, status ? '1' : '0');
+  void setGrowLight(bool status) =>
+      publish(AppConstants.topicGrowLightControl, status ? '1' : '0');
+  void setPhUpPump(bool status) =>
+      publish(AppConstants.topicPhUpPumpControl, status ? '1' : '0');
+  void setPhDownPump(bool status) =>
+      publish(AppConstants.topicPhDownPumpControl, status ? '1' : '0');
+  void setNutrientAPump(bool status) =>
+      publish(AppConstants.topicNutrientAPumpControl, status ? '1' : '0');
+  void setNutrientBPump(bool status) =>
+      publish(AppConstants.topicNutrientBPumpControl, status ? '1' : '0');
+
   // ============================================
-  // ✅ NEW: Publish dengan Konfirmasi (QoS 1)
+  // Camera Control Methods
   // ============================================
-  Future<bool> publishWithConfirmation(String topic, String message) async {
+
+  /// Mengirim perintah CAPTURE untuk memicu analisis pertumbuhan tanaman
+  void publishCaptureCommand() {
     if (!isConnected) {
-      debugPrint('⚠️  Tidak dapat publish: Belum terhubung ke broker');
-      return false;
+      debugPrint('⚠️ Gagal mengirim perintah capture: MQTT Disconnected');
+      return;
     }
 
-    try {
-      final builder = MqttClientPayloadBuilder();
-      builder.addString(message);
-      client.publishMessage(
-        topic,
-        MqttQos.atLeastOnce, // QoS 1 untuk konfirmasi
-        builder.payload!,
-      );
-      debugPrint('✅ Published dengan konfirmasi: $topic = $message');
-      return true;
-    } catch (e) {
-      debugPrint('❌ Publish gagal: $e');
-      return false;
-    }
+    publish(AppConstants.topicCameraCapture, 'CAPTURE');
+    debugPrint('📸 Mengirim perintah analisis pertumbuhan (CAPTURE)');
+  }
+
+  /// Mengirim status kamera
+  void publishCameraStatus(String status) {
+    if (!isConnected) return;
+    publish(AppConstants.topicCameraStatus, status);
   }
 
   // ============================================
-  // Actuator Control Methods (tidak berubah)
-  // ============================================
-  void setPump(bool status) {
-    publish(AppConstants.topicPumpControl, status ? '1' : '0');
-    debugPrint('💧 ${status ? "Menyalakan" : "Mematikan"} pompa air');
-  }
-
-  void setGrowLight(bool status) {
-    publish(AppConstants.topicGrowLightControl, status ? '1' : '0');
-    debugPrint('💡 ${status ? "Menyalakan" : "Mematikan"} lampu grow');
-  }
-
-  void setPhUpPump(bool status) {
-    publish(AppConstants.topicPhUpPumpControl, status ? '1' : '0');
-    debugPrint('⬆️  ${status ? "Menyalakan" : "Mematikan"} pompa pH Up');
-  }
-
-  void setPhDownPump(bool status) {
-    publish(AppConstants.topicPhDownPumpControl, status ? '1' : '0');
-    debugPrint('⬇️  ${status ? "Menyalakan" : "Mematikan"} pompa pH Down');
-  }
-
-  void setNutrientAPump(bool status) {
-    publish(AppConstants.topicNutrientAPumpControl, status ? '1' : '0');
-    debugPrint('🧪 ${status ? "Menyalakan" : "Mematikan"} pompa Nutrisi A');
-  }
-
-  void setNutrientBPump(bool status) {
-    publish(AppConstants.topicNutrientBPumpControl, status ? '1' : '0');
-    debugPrint('🧪 ${status ? "Menyalakan" : "Mematikan"} pompa Nutrisi B');
-  }
-
-  // ============================================
-  // ✅ NEW: Eksekusi Aksi Terjadwal (untuk ScheduleService)
+  // Execute Scheduled Action (tidak berubah)
   // ============================================
   Future<void> executeScheduledAction(
-    String actuatorType,
-    int durationSeconds,
-  ) async {
-    debugPrint(
-        '⏰ Mengeksekusi jadwal: $actuatorType selama $durationSeconds detik');
+      String actuatorType, int durationSeconds) async {
+    debugPrint('⏰ Executing: $actuatorType for $durationSeconds seconds');
 
-    // Nyalakan aktuator
     switch (actuatorType) {
       case 'pump':
         setPump(true);
@@ -387,10 +371,8 @@ class MqttService extends ChangeNotifier {
         break;
     }
 
-    // Tunggu durasi
     await Future.delayed(Duration(seconds: durationSeconds));
 
-    // Matikan aktuator
     switch (actuatorType) {
       case 'pump':
         setPump(false);
@@ -412,11 +394,11 @@ class MqttService extends ChangeNotifier {
         break;
     }
 
-    debugPrint('✅ Jadwal selesai dieksekusi: $actuatorType');
+    debugPrint('✅ Schedule completed: $actuatorType');
   }
 
   // ============================================
-  // Disconnect
+  // Disconnect (tidak berubah)
   // ============================================
   void disconnect() {
     _heartbeatTimer?.cancel();
@@ -431,20 +413,5 @@ class MqttService extends ChangeNotifier {
     _heartbeatTimer?.cancel();
     disconnect();
     super.dispose();
-  }
-
-  // ============================================
-  // ✅ NEW: Camera Control
-  // ============================================
-  /// Mengirim perintah CAPTURE ke topic kamera
-  /// Digunakan untuk trigger analisis pertumbuhan tanaman
-  void publishCaptureCommand() {
-    if (!isConnected) {
-      debugPrint('⚠️ Gagal mengirim perintah capture: MQTT Disconnected');
-      return;
-    }
-
-    publish(AppConstants.topicCameraCapture, 'CAPTURE');
-    debugPrint('📸 Mengirim perintah analisis pertumbuhan (CAPTURE)');
   }
 }

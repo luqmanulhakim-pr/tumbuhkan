@@ -5,27 +5,25 @@ class AppConstants {
   static const String mqttBrokerUrl = 'broker.hivemq.com';
   static const int mqttPort = 1883;
   static const String mqttClientId = 'tumbuhkan_flutter_client';
-
-  // Connection Settings
   static const int mqttKeepAlive = 60;
-  static const int mqttTimeout = 5;
-
-  // Auto-Reconnect Settings
+  static const Duration reconnectDelay = Duration(seconds: 5);
   static const int maxReconnectAttempts = 5;
-  static const Duration reconnectDelay = Duration(seconds: 3);
-  static const Duration maxReconnectDelay = Duration(minutes: 5);
-
-  // Heartbeat Settings
   static const Duration heartbeatInterval = Duration(seconds: 30);
   static const Duration heartbeatTimeout = Duration(minutes: 2);
 
   // ============================================
-  // ✅ NEW: Single Sensor Topic (JSON payload)
+  // ✅ MQTT Topics - Sensor Data (Single JSON Topic)
   // ============================================
-  static const String topicSensorData = 'tumbuhkan/sensor/data';
+  static const String topicSensorData = 'teumbuhkan/sensor/data';
 
   // ============================================
-  // MQTT Topics - Actuator Control (Publish)
+  // ✅ MQTT Topics - Camera
+  // ============================================
+  static const String topicCameraCapture = 'tumbuhkan/camera/capture';
+  static const String topicCameraStatus = 'tumbuhkan/camera/status';
+
+  // ============================================
+  // MQTT Topics - Actuator Control
   // ============================================
   static const String topicPumpControl = 'tumbuhkan/actuator/pump/control';
   static const String topicGrowLightControl =
@@ -39,7 +37,7 @@ class AppConstants {
       'tumbuhkan/actuator/nutrient_b/control';
 
   // ============================================
-  // MQTT Topics - Actuator Status (Subscribe)
+  // MQTT Topics - Actuator Status
   // ============================================
   static const String topicPumpStatus = 'tumbuhkan/actuator/pump/status';
   static const String topicGrowLightStatus =
@@ -51,6 +49,14 @@ class AppConstants {
       'tumbuhkan/actuator/nutrient_a/status';
   static const String topicNutrientBPumpStatus =
       'tumbuhkan/actuator/nutrient_b/status';
+
+  // ============================================
+  // ✅ NEW: Flask Camera API
+  // ============================================
+  static const String flaskBaseUrl = 'http://192.168.1.100:5000';
+  static const String flaskStreamUrl = '$flaskBaseUrl/stream';
+  static const String flaskUploadUrl = '$flaskBaseUrl/upload';
+  static const String flaskImagesUrl = '$flaskBaseUrl/images';
 
   // ============================================
   // Sensor Thresholds
@@ -78,14 +84,14 @@ class AppConstants {
   // ============================================
   // ✅ NEW: API Endpoints (untuk integrasi Flask nanti)
   // ============================================
-  static const String apiBaseUrl = 'https://api.tumbuhkan.com';
-  static const String apiDiseaseDetection = '/api/detect-disease';
-  static const String apiGrowthPrediction = '/api/predict-growth';
-  static const String apiBatchUpload = '/api/sensors/batch';
+  // static const String apiBaseUrl = 'https://api.tumbuhkan.com';
+  // static const String apiDiseaseDetection = '/api/detect-disease';
+  // static const String apiGrowthPrediction = '/api/predict-growth';
+  // static const String apiBatchUpload = '/api/sensors/batch';
 
   //Camera
-  static const String cameraStreamUrl = 'http://192.168.1.117:5000/stream';
-  static const String topicCameraCapture = 'tumbuhkan/camera/capture';
+  static const String cameraStreamUrl = 'http://192.168.1.146:5000/stream';
+  static const String cameraPost = 'http://192.168.1.146:5000';
 
   static const String plantHeight = '15.4 cm';
   static const String plantLeafCount = '12 Helai';
