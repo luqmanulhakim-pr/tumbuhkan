@@ -57,6 +57,8 @@ dependencies:
 
   flutter_mjpeg: ^2.0.4
 
+  google_generative_ai: ^0.4.7
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

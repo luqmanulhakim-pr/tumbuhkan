@@ -14,7 +14,7 @@ class AppConstants {
   // ============================================
   // ✅ MQTT Topics - Sensor Data (Single JSON Topic)
   // ============================================
-  static const String topicSensorData = 'teumbuhkan/sensor/data';
+  static const String topicSensorData = 'tumbuhkan/sensor/data';
 
   // ============================================
   // ✅ MQTT Topics - Camera
@@ -51,7 +51,7 @@ class AppConstants {
       'tumbuhkan/actuator/nutrient_b/status';
 
   // ============================================
-  // ✅ NEW: Flask Camera API
+  // NEW: Flask Camera API
   // ============================================
   static const String flaskBaseUrl = 'http://192.168.1.100:5000';
   static const String flaskStreamUrl = '$flaskBaseUrl/stream';
@@ -82,7 +82,7 @@ class AppConstants {
   static const String githubRepo = 'https://github.com/username/tumbuhkan';
 
   // ============================================
-  // ✅ NEW: API Endpoints (untuk integrasi Flask nanti)
+  // NEW: API Endpoints (untuk integrasi Flask nanti)
   // ============================================
   // static const String apiBaseUrl = 'https://api.tumbuhkan.com';
   // static const String apiDiseaseDetection = '/api/detect-disease';
@@ -97,4 +97,14 @@ class AppConstants {
   static const String plantLeafCount = '12 Helai';
   static const String plantHealthScore = '98%';
   static const String harvestPrediction = '12 Hari lagi';
+
+  //Chatbot
+  static const String geminiApiKey = 'AIzaSyBza3fBm8odFBZI4o3kRQc6f6rb2lzEy2E';
+  static const String geminiModel = 'gemini-2.5-flash';
+  static const int geminiMaxTokens = 2048;
+  static const double geminiTemperature = 0.7;
+
+  // Chatbot Personality
+  static const String chatbotName = 'Tumu Assistant';
+  static const String chatbotRole = 'Hydroponics Expert Assistant';
 }

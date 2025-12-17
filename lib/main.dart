@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 import 'config/routes.dart';
 import 'config/theme.dart';
 import 'services/mqtt_service.dart';
-import 'services/schedule_service.dart';
+import 'services/gemini_service.dart'; // 🆕 Import
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -25,8 +25,7 @@ void main() {
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => MqttService()),
-        ChangeNotifierProvider(
-            create: (_) => ScheduleService()..loadDummyData()),
+        ChangeNotifierProvider(create: (_) => GeminiService()), 
       ],
       child: const TumbuhkanApp(),
     ),

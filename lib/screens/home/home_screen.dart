@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:tumbuhkan/widgets/chatbot_fab.dart';
 import 'package:tumbuhkan/widgets/home/connection_status_indicator.dart';
 import '../../services/mqtt_service.dart';
 import '../../widgets/home/bottom_nav_bar.dart';
@@ -46,6 +47,8 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: _screens[_currentIndex],
+      // Contoh di home_screen.dart
+      floatingActionButton: const ChatBotFAB(),
       bottomNavigationBar: CustomBottomNavBar(
         currentIndex: _currentIndex,
         onTap: (index) {
