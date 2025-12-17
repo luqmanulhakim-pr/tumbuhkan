@@ -8,6 +8,7 @@ import '../controller/controller_screen.dart';
 import '../camera/camera_screen.dart';
 import '../monitoring/monitoring_screen.dart';
 import '../sensor_detail/sensor_detail_screen.dart';
+import '../settings/settings_screen.dart'; // 🆕 Import
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -25,6 +26,7 @@ class _HomeScreenState extends State<HomeScreen> {
     const ControllerScreen(),
     const CameraScreen(),
     const MonitoringScreen(),
+    const SettingsScreen(), // 🆕 Add
   ];
 
   @override

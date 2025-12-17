@@ -110,7 +110,7 @@ class MqttService extends ChangeNotifier {
       } on Exception catch (e) {
         debugPrint('❌ Connection exception: $e');
         client.disconnect();
-        throw e;
+        rethrow;
       }
 
       if (client.connectionStatus?.state == MqttConnectionState.connected) {
@@ -138,7 +138,7 @@ class MqttService extends ChangeNotifier {
       _reconnectAttempts++;
       if (_reconnectAttempts < AppConstants.maxReconnectAttempts) {
         debugPrint(
-            '🔄 Mencoba lagi dalam ${AppConstants.reconnectDelay.inSeconds} detik... (${_reconnectAttempts}/${AppConstants.maxReconnectAttempts})');
+            '🔄 Mencoba lagi dalam ${AppConstants.reconnectDelay.inSeconds} detik... ($_reconnectAttempts/${AppConstants.maxReconnectAttempts})');
         Future.delayed(AppConstants.reconnectDelay, connect);
       } else {
         debugPrint('🚫 Batas maksimum percobaan koneksi tercapai');

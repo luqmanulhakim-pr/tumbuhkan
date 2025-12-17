@@ -58,6 +58,12 @@ class CustomBottomNavBar extends StatelessWidget {
             activeIcon: Icon(Icons.videocam),
             label: 'Monitoring',
           ),
+          // 🆕 Index 4: Settings
+          BottomNavigationBarItem(
+            icon: Icon(Icons.settings_outlined),
+            activeIcon: Icon(Icons.settings),
+            label: 'Settings',
+          ),
         ],
       ),
     );

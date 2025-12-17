@@ -1,13 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'config/routes.dart';
 import 'config/theme.dart';
 import 'services/mqtt_service.dart';
-import 'services/gemini_service.dart'; // 🆕 Import
+import 'services/gemini_service.dart';
+import 'services/firebase_auth_service.dart';
+import 'services/settings_service.dart'; // 🆕 Import
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  await Firebase.initializeApp();
 
   SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
@@ -24,8 +29,10 @@ void main() {
   runApp(
     MultiProvider(
       providers: [
+        ChangeNotifierProvider(create: (_) => SettingsService()), // 🆕 Add FIRST
         ChangeNotifierProvider(create: (_) => MqttService()),
-        ChangeNotifierProvider(create: (_) => GeminiService()), 
+        ChangeNotifierProvider(create: (_) => GeminiService()),
+        ChangeNotifierProvider(create: (_) => FirebaseAuthService()),
       ],
       child: const TumbuhkanApp(),
     ),

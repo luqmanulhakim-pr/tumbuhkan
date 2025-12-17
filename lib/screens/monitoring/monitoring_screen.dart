@@ -3,6 +3,7 @@ import 'package:flutter_mjpeg/flutter_mjpeg.dart';
 import 'package:provider/provider.dart';
 import '../../config/constants.dart';
 import '../../services/mqtt_service.dart';
+import '../../services/settings_service.dart';
 
 class MonitoringScreen extends StatefulWidget {
   const MonitoringScreen({super.key});
@@ -17,6 +18,14 @@ class _MonitoringScreenState extends State<MonitoringScreen> {
   @override
   Widget build(BuildContext context) {
     final mqtt = Provider.of<MqttService>(context);
+    final settings = Provider.of<SettingsService>(context);
+
+    // 🆕 Debug print saat build
+    debugPrint('═══════════════════════════════════════');
+    debugPrint('🟡 [MONITORING SCREEN] Settings loaded:');
+    debugPrint('🟡 Flask Stream URL: ${settings.flaskStreamUrl}');
+    debugPrint('🟡 Stream running: $_isStreamRunning');
+    debugPrint('═══════════════════════════════════════');
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
@@ -72,11 +81,13 @@ class _MonitoringScreenState extends State<MonitoringScreen> {
                 children: [
                   Mjpeg(
                     isLive: _isStreamRunning,
-                    stream: AppConstants.cameraStreamUrl,
+                    stream: settings.flaskStreamUrl,
                     error: (context, error, stack) {
-                      return _buildOfflinePlaceholder();
+                      debugPrint('🔴 [MONITORING SCREEN] Stream error: $error');
+                      return _buildOfflinePlaceholder(settings.flaskStreamUrl);
                     },
                     loading: (context) {
+                      debugPrint('🟡 [MONITORING SCREEN] Stream loading...');
                       return const Center(
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
@@ -256,7 +267,7 @@ class _MonitoringScreenState extends State<MonitoringScreen> {
                       ),
                     ),
 
-                    const SizedBox(height: 80), // ✅ Space untuk FAB
+                    const SizedBox(height: 80),
                   ],
                 ),
               ),
@@ -280,7 +291,7 @@ class _MonitoringScreenState extends State<MonitoringScreen> {
     );
   }
 
-  Widget _buildOfflinePlaceholder() {
+  Widget _buildOfflinePlaceholder(String streamUrl) {
     return Container(
       color: Colors.black,
       child: Column(
@@ -309,9 +320,20 @@ class _MonitoringScreenState extends State<MonitoringScreen> {
               fontSize: 12,
             ),
           ),
+          const SizedBox(height: 8),
+          Text(
+            'URL: $streamUrl',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.grey[500],
+              fontSize: 10,
+              fontFamily: 'monospace',
+            ),
+          ),
           const SizedBox(height: 16),
           ElevatedButton.icon(
             onPressed: () {
+              debugPrint('🟡 [MONITORING SCREEN] Retry stream connection...');
               setState(() {
                 _isStreamRunning = false;
               });
@@ -384,6 +406,7 @@ class _MonitoringScreenState extends State<MonitoringScreen> {
 
   void _handleAnalysisRequest(BuildContext context, MqttService mqtt) {
     if (mqtt.isConnected) {
+      debugPrint('🟢 [MONITORING SCREEN] Sending capture command via MQTT');
       mqtt.publishCaptureCommand();
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -409,6 +432,7 @@ class _MonitoringScreenState extends State<MonitoringScreen> {
         ),
       );
     } else {
+      debugPrint('🔴 [MONITORING SCREEN] MQTT not connected');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Row(

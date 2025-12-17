@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "638082677566",
+    "project_id": "tumbuhkan-283f1",
+    "storage_bucket": "tumbuhkan-283f1.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:638082677566:android:e103ff484599dad9fb4a6f",
+        "android_client_info": {
+          "package_name": "com.example.tumbuhkan_v2"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "638082677566-i621503ngc90n5mko10p152ea1u5hc7a.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAGqtQJLf7fq0iZ0P86MhdB0bV8l0I76qg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "638082677566-i621503ngc90n5mko10p152ea1u5hc7a.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

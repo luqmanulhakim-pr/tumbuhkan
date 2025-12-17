@@ -1,35 +1,65 @@
-import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import '../config/constants.dart';
+import 'package:flutter/foundation.dart';
 
 class CameraService {
+  static const Duration _timeout = Duration(seconds: 30); // 🆕 Timeout 30 detik
+
   /// Upload foto ke Flask server
-  static Future<Map<String, dynamic>> uploadImage(String imagePath) async {
+  /// [baseUrl] diambil dari SettingsService
+  static Future<Map<String, dynamic>> uploadImage(
+    String imagePath,
+    String baseUrl, // 🆕 Tambah parameter baseUrl
+  ) async {
     try {
-      final uri = Uri.parse('${AppConstants.cameraPost}/upload');
+      final uploadUrl = '$baseUrl/upload';
+      debugPrint('═══════════════════════════════════════');
+      debugPrint('🔵 [CAMERA SERVICE] Starting upload...');
+      debugPrint('🔵 [CAMERA SERVICE] Upload URL: $uploadUrl');
+      debugPrint('🔵 [CAMERA SERVICE] Image path: $imagePath');
+
+      final uri = Uri.parse(uploadUrl);
       final request = http.MultipartRequest('POST', uri);
 
       // Attach image file
       final file = await http.MultipartFile.fromPath('image', imagePath);
+      debugPrint('🔵 [CAMERA SERVICE] File size: ${file.length} bytes');
+
       request.files.add(file);
 
-      // Send request
-      final response = await request.send();
-      final responseBody = await response.stream.bytesToString();
+      debugPrint('🔵 [CAMERA SERVICE] Sending request...');
+
+      // Send request with timeout
+      final streamedResponse = await request.send().timeout(
+        _timeout,
+        onTimeout: () {
+          debugPrint(
+              '🔴 [CAMERA SERVICE] Request timeout after ${_timeout.inSeconds}s');
+          throw Exception('Upload timeout - check network connection');
+        },
+      );
+
+      final response = await http.Response.fromStream(streamedResponse);
+
+      debugPrint('🔵 [CAMERA SERVICE] Response status: ${response.statusCode}');
+      debugPrint('🔵 [CAMERA SERVICE] Response body: ${response.body}');
+      debugPrint('═══════════════════════════════════════');
 
       if (response.statusCode == 200) {
         return {
           'success': true,
-          'data': json.decode(responseBody),
+          'data': json.decode(response.body),
         };
       } else {
         return {
           'success': false,
-          'error': 'Upload failed with status ${response.statusCode}',
+          'error':
+              'Upload failed with status ${response.statusCode}: ${response.body}',
         };
       }
     } catch (e) {
+      debugPrint('🔴 [CAMERA SERVICE] Exception: $e');
+      debugPrint('═══════════════════════════════════════');
       return {
         'success': false,
         'error': e.toString(),
@@ -38,10 +68,17 @@ class CameraService {
   }
 
   /// Get list of uploaded images
-  static Future<Map<String, dynamic>> getImages() async {
+  /// [baseUrl] diambil dari SettingsService
+  static Future<Map<String, dynamic>> getImages(
+    String baseUrl, // 🆕 Tambah parameter baseUrl
+  ) async {
     try {
-      final response =
-          await http.get(Uri.parse('${AppConstants.cameraPost}/images'));
+      final imagesUrl = '$baseUrl/images';
+      debugPrint('🔵 [CAMERA SERVICE] Getting images from: $imagesUrl');
+
+      final response = await http.get(Uri.parse(imagesUrl)).timeout(_timeout);
+
+      debugPrint('🔵 [CAMERA SERVICE] Response status: ${response.statusCode}');
 
       if (response.statusCode == 200) {
         return {
@@ -55,10 +92,27 @@ class CameraService {
         };
       }
     } catch (e) {
+      debugPrint('🔴 [CAMERA SERVICE] Error: $e');
       return {
         'success': false,
         'error': e.toString(),
       };
+    }
+  }
+
+  /// Test connection to Flask server
+  static Future<bool> testConnection(String baseUrl) async {
+    try {
+      debugPrint('🔵 [CAMERA SERVICE] Testing connection to: $baseUrl/test');
+      final response = await http.get(Uri.parse('$baseUrl/test')).timeout(
+            const Duration(seconds: 5),
+          );
+
+      debugPrint('🔵 [CAMERA SERVICE] Test response: ${response.statusCode}');
+      return response.statusCode == 200;
+    } catch (e) {
+      debugPrint('🔴 [CAMERA SERVICE] Connection test failed: $e');
+      return false;
     }
   }
 }

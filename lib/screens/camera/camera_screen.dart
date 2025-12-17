@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:camera/camera.dart';
+import 'package:provider/provider.dart';
 import '../../services/camera_service.dart';
+import '../../services/settings_service.dart';
 
 class CameraScreen extends StatefulWidget {
   const CameraScreen({super.key});
@@ -36,9 +38,10 @@ class _CameraScreenState extends State<CameraScreen> {
   Future<void> _initializeCamera() async {
     try {
       _cameras = await availableCameras();
+
       if (_cameras == null || _cameras!.isEmpty) {
         setState(() {
-          _errorMessage = 'No cameras found';
+          _errorMessage = 'No cameras available';
           _isLoading = false;
         });
         return;
@@ -47,7 +50,7 @@ class _CameraScreenState extends State<CameraScreen> {
       await _setupCamera(_selectedCameraIndex);
     } catch (e) {
       setState(() {
-        _errorMessage = 'Error: $e';
+        _errorMessage = 'Error initializing camera: $e';
         _isLoading = false;
       });
     }
@@ -67,115 +70,134 @@ class _CameraScreenState extends State<CameraScreen> {
 
     try {
       await _cameraController!.initialize();
-      if (mounted) {
-        setState(() {
-          _isCameraInitialized = true;
-          _isLoading = false;
-        });
-      }
+      setState(() {
+        _isCameraInitialized = true;
+        _isLoading = false;
+      });
     } catch (e) {
       setState(() {
-        _errorMessage = 'Camera error: $e';
+        _errorMessage = 'Camera initialization failed: $e';
         _isLoading = false;
       });
     }
   }
 
   Future<void> _switchCamera() async {
-    if (_cameras == null || _cameras!.length < 2) {
-      print('❌ Not enough cameras to switch');
-      return;
-    }
+    if (_cameras == null || _cameras!.length < 2) return;
 
-    print('🔄 Switching camera...');
-
-    setState(() {
-      _isLoading = true;
-      _isCameraInitialized = false;
-    });
-
+    setState(() => _isLoading = true);
     _selectedCameraIndex = (_selectedCameraIndex + 1) % _cameras!.length;
     await _setupCamera(_selectedCameraIndex);
-
-    print('✅ Camera switched to index $_selectedCameraIndex');
   }
 
   Future<void> _takePicture() async {
-    print('📸 Take picture button pressed');
-
-    if (_cameraController == null) {
-      print('❌ Camera controller is null');
+    if (_cameraController == null || !_cameraController!.value.isInitialized) {
       return;
     }
 
-    if (!_cameraController!.value.isInitialized) {
-      print('❌ Camera not initialized');
-      return;
-    }
-
-    if (_isUploading) {
-      print('⏳ Already uploading...');
-      return;
-    }
+    if (_isUploading) return;
 
     try {
-      print('📷 Capturing image...');
+      setState(() => _isUploading = true);
 
-      setState(() {
-        _isUploading = true;
-      });
+      // 🆕 Ambil settingsService
+      final settingsService =
+          Provider.of<SettingsService>(context, listen: false);
+
+      // 🆕 Debug print semua URL
+      debugPrint('═══════════════════════════════════════');
+      debugPrint('🟢 [CAMERA SCREEN] Settings loaded:');
+      debugPrint('🟢 Flask Base URL: ${settingsService.flaskBaseUrl}');
+      debugPrint('🟢 Flask Upload URL: ${settingsService.flaskUploadUrl}');
+      debugPrint('🟢 Flask Stream URL: ${settingsService.flaskStreamUrl}');
+      debugPrint('🟢 Flask Images URL: ${settingsService.flaskImagesUrl}');
+      debugPrint('═══════════════════════════════════════');
+
+      final baseUrl = settingsService.flaskBaseUrl;
 
       final image = await _cameraController!.takePicture();
-      print('✅ Image captured: ${image.path}');
+      debugPrint('🟢 [CAMERA SCREEN] Image captured: ${image.path}');
 
       if (!mounted) return;
 
-      print('📤 Uploading image...');
-      final result = await CameraService.uploadImage(image.path);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Row(
+            children: [
+              SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
+                ),
+              ),
+              SizedBox(width: 12),
+              Text('Uploading image...'),
+            ],
+          ),
+          duration: Duration(seconds: 2),
+        ),
+      );
+
+      debugPrint('🟢 [CAMERA SCREEN] Calling CameraService.uploadImage()');
+      final result = await CameraService.uploadImage(image.path, baseUrl);
+      debugPrint('🟢 [CAMERA SCREEN] Upload result: $result');
 
       if (!mounted) return;
-
-      setState(() {
-        _isUploading = false;
-      });
 
       if (result['success']) {
-        print('✅ Upload success: ${result['data']['filename']}');
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('✅ Photo uploaded: ${result['data']['filename']}'),
-              backgroundColor: Colors.green,
-              duration: const Duration(seconds: 3),
-            ),
-          );
-        }
-      } else {
-        print('❌ Upload failed: ${result['error']}');
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('❌ Upload failed: ${result['error']}'),
-              backgroundColor: Colors.red,
-              duration: const Duration(seconds: 3),
-            ),
-          );
-        }
-      }
-    } catch (e) {
-      print('❌ Error taking picture: $e');
-
-      setState(() {
-        _isUploading = false;
-      });
-
-      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('❌ Error: $e'),
-            backgroundColor: Colors.red,
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle, color: Colors.white, size: 20),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Image uploaded successfully!\n${result['data']?['message'] ?? ''}',
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 3),
           ),
         );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.error, color: Colors.white, size: 20),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Upload failed: ${result['error']}',
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('🔴 [CAMERA SCREEN] Exception: $e');
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isUploading = false);
       }
     }
   }
@@ -187,148 +209,165 @@ class _CameraScreenState extends State<CameraScreen> {
       body: Stack(
         children: [
           // Camera Preview
-          if (_isCameraInitialized && _cameraController != null)
-            SizedBox.expand(
-              child: CameraPreview(_cameraController!),
-            )
-          else if (_isLoading)
+          if (_isLoading)
             const Center(
               child: CircularProgressIndicator(color: Colors.white),
             )
           else if (_errorMessage != null)
             Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.error_outline,
-                      size: 64, color: Colors.white),
-                  const SizedBox(height: 16),
-                  Text(
-                    _errorMessage!,
-                    style: const TextStyle(color: Colors.white),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.error_outline,
+                        color: Colors.red, size: 64),
+                    const SizedBox(height: 16),
+                    Text(
+                      _errorMessage!,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(color: Colors.white, fontSize: 16),
+                    ),
+                    const SizedBox(height: 24),
+                    ElevatedButton.icon(
+                      onPressed: _initializeCamera,
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('Retry'),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else if (_isCameraInitialized)
+            SizedBox.expand(
+              child: FittedBox(
+                fit: BoxFit.cover,
+                child: SizedBox(
+                  width: _cameraController!.value.previewSize!.height,
+                  height: _cameraController!.value.previewSize!.width,
+                  child: CameraPreview(_cameraController!),
+                ),
+              ),
+            ),
+
+          // Grid Overlay
+          if (_isCameraInitialized)
+            Positioned.fill(
+              child: CustomPaint(
+                painter: GridPainter(),
               ),
             ),
 
           // Top Controls
           Positioned(
-            top: MediaQuery.of(context).padding.top + 16,
-            left: 16,
-            right: 16,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                // Back button
-                Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    onTap: () {
-                      print('⬅️ Back button pressed');
-                      Navigator.pop(context);
-                    },
-                    borderRadius: BorderRadius.circular(30),
-                    child: Container(
-                      width: 50,
-                      height: 50,
-                      decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.5),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.arrow_back,
-                        color: Colors.white,
-                        size: 28,
-                      ),
-                    ),
-                  ),
-                ),
-                // Switch camera
-                if (_cameras != null && _cameras!.length > 1)
-                  Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      onTap: _isLoading ? null : _switchCamera,
-                      borderRadius: BorderRadius.circular(30),
-                      child: Container(
-                        width: 50,
-                        height: 50,
-                        decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.5),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          Icons.flip_camera_ios,
-                          color: _isLoading ? Colors.grey : Colors.white,
-                          size: 28,
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-
-          // Bottom Capture Button
-          Positioned(
-            bottom: MediaQuery.of(context).padding.bottom + 32,
+            top: 0,
             left: 0,
             right: 0,
-            child: Center(
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: (_isCameraInitialized && !_isUploading)
-                      ? () {
-                          print('🔘 Capture button tapped');
-                          _takePicture();
-                        }
-                      : () {
-                          print(
-                              '❌ Cannot take picture - camera: $_isCameraInitialized, uploading: $_isUploading');
-                        },
-                  borderRadius: BorderRadius.circular(35),
-                  child: Container(
-                    width: 70,
-                    height: 70,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Colors.white,
-                      border: Border.all(
-                        color: const Color(0xFF1976D2),
-                        width: 4,
-                      ),
-                    ),
-                    child: _isUploading
-                        ? const Padding(
-                            padding: EdgeInsets.all(16.0),
-                            child: CircularProgressIndicator(
-                              color: Color(0xFF1976D2),
-                              strokeWidth: 3,
-                            ),
-                          )
-                        : Icon(
-                            Icons.camera_alt,
-                            color: _isCameraInitialized
-                                ? const Color(0xFF1976D2)
-                                : Colors.grey,
-                            size: 32,
-                          ),
-                  ),
+            child: Container(
+              padding: EdgeInsets.only(
+                top: MediaQuery.of(context).padding.top + 10,
+                left: 16,
+                right: 16,
+                bottom: 16,
+              ),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.black.withOpacity(0.7),
+                    Colors.transparent,
+                  ],
                 ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon:
+                        const Icon(Icons.close, color: Colors.white, size: 28),
+                  ),
+                  const Text(
+                    'Deteksi Penyakit',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  if (_cameras != null && _cameras!.length > 1)
+                    IconButton(
+                      onPressed: _switchCamera,
+                      icon: const Icon(Icons.flip_camera_ios,
+                          color: Colors.white, size: 28),
+                    )
+                  else
+                    const SizedBox(width: 48),
+                ],
               ),
             ),
           ),
 
-          // Grid Overlay
-          if (_isCameraInitialized)
-            IgnorePointer(
-              child: CustomPaint(
-                painter: GridPainter(),
-                child: Container(),
+          // Bottom Controls
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: Container(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).padding.bottom + 20,
+                top: 20,
+              ),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.bottomCenter,
+                  end: Alignment.topCenter,
+                  colors: [
+                    Colors.black.withOpacity(0.7),
+                    Colors.transparent,
+                  ],
+                ),
+              ),
+              child: Column(
+                children: [
+                  // Capture Button
+                  GestureDetector(
+                    onTap: _isUploading ? null : _takePicture,
+                    child: Container(
+                      width: 70,
+                      height: 70,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 4),
+                        color: _isUploading
+                            ? Colors.grey
+                            : Colors.white.withOpacity(0.3),
+                      ),
+                      child: _isUploading
+                          ? const Padding(
+                              padding: EdgeInsets.all(12),
+                              child: CircularProgressIndicator(
+                                strokeWidth: 3,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Icon(Icons.camera_alt,
+                              color: Colors.white, size: 32),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Tap to capture and analyze',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
               ),
             ),
+          ),
         ],
       ),
     );
@@ -343,16 +382,28 @@ class GridPainter extends CustomPainter {
       ..strokeWidth = 1;
 
     // Vertical lines
-    for (int i = 1; i < 3; i++) {
-      final x = size.width * i / 3;
-      canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
-    }
+    canvas.drawLine(
+      Offset(size.width / 3, 0),
+      Offset(size.width / 3, size.height),
+      paint,
+    );
+    canvas.drawLine(
+      Offset(2 * size.width / 3, 0),
+      Offset(2 * size.width / 3, size.height),
+      paint,
+    );
 
     // Horizontal lines
-    for (int i = 1; i < 3; i++) {
-      final y = size.height * i / 3;
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
-    }
+    canvas.drawLine(
+      Offset(0, size.height / 3),
+      Offset(size.width, size.height / 3),
+      paint,
+    );
+    canvas.drawLine(
+      Offset(0, 2 * size.height / 3),
+      Offset(size.width, 2 * size.height / 3),
+      paint,
+    );
   }
 
   @override
