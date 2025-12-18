@@ -27,7 +27,7 @@ jobs:
 
       # Build APK dengan menyuntikkan API Key dari Secrets
       - name: Build APK
-        run: flutter build apk --release --dart-define=GEMINI_API_KEY=${{ secrets.API_KEY_GEMINI }}
+        run: flutter build apk --release --dart-define=API_KEY_GEMINI=${{ secrets.API_KEY_GEMINI }}
 
       # (Opsional) Upload artifact agar bisa didownload
       - name: Upload APK
