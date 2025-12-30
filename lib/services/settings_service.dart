@@ -7,82 +7,98 @@ class SettingsService extends ChangeNotifier {
   static const String _settingsKey = 'app_settings';
 
   AppSettings _settings = AppSettings.defaultSettings();
-  bool _isLoading = false;
 
   AppSettings get settings => _settings;
-  bool get isLoading => _isLoading;
 
-  // Getters for easy access
+  // Getters untuk akses cepat
+  String get flaskIpAddress => _settings.flaskIpAddress;
+  int get flaskPort => _settings.flaskPort;
+  String get esp32CamIpAddress => _settings.esp32CamIpAddress;
+  int get esp32CamPort => _settings.esp32CamPort;
+  bool get useEsp32CamForStream => _settings.useEsp32CamForStream;
+
+  // URLs
   String get flaskBaseUrl => _settings.flaskBaseUrl;
   String get flaskStreamUrl => _settings.flaskStreamUrl;
   String get flaskUploadUrl => _settings.flaskUploadUrl;
-  String get flaskImagesUrl => _settings.flaskImagesUrl;
+  String get flaskUploadGrowthUrl => _settings.flaskUploadGrowthUrl;
+  String get esp32CamStreamUrl => _settings.esp32CamStreamUrl;
+  String get streamUrl => _settings.streamUrl; // Dynamic
 
-  SettingsService() {
-    loadSettings();
-  }
-
-  // Load settings from SharedPreferences
+  // ============================================
+  // Load Settings from Storage
+  // ============================================
   Future<void> loadSettings() async {
     try {
-      _isLoading = true;
-      notifyListeners();
-
       final prefs = await SharedPreferences.getInstance();
-      final settingsJson = prefs.getString(_settingsKey);
+      final jsonString = prefs.getString(_settingsKey);
 
-      if (settingsJson != null) {
-        final Map<String, dynamic> json = jsonDecode(settingsJson);
+      if (jsonString != null) {
+        final json = jsonDecode(jsonString);
         _settings = AppSettings.fromJson(json);
+        debugPrint('✅ Settings loaded: ${_settings.toJson()}');
       } else {
         _settings = AppSettings.defaultSettings();
+        debugPrint('ℹ️  No saved settings, using defaults');
       }
+
+      notifyListeners();
     } catch (e) {
-      debugPrint('Error loading settings: $e');
+      debugPrint('❌ Error loading settings: $e');
       _settings = AppSettings.defaultSettings();
-    } finally {
-      _isLoading = false;
       notifyListeners();
     }
   }
 
-  // Save settings to SharedPreferences
-  Future<bool> saveSettings(AppSettings newSettings) async {
+  // ============================================
+  // Save Settings to Storage
+  // ============================================
+  Future<void> saveSettings(AppSettings newSettings) async {
     try {
-      _isLoading = true;
-      notifyListeners();
+      _settings = newSettings;
 
       final prefs = await SharedPreferences.getInstance();
-      final settingsJson = jsonEncode(newSettings.toJson());
+      final jsonString = jsonEncode(_settings.toJson());
+      await prefs.setString(_settingsKey, jsonString);
 
-      final success = await prefs.setString(_settingsKey, settingsJson);
-
-      if (success) {
-        _settings = newSettings;
-        notifyListeners();
-        return true;
-      }
-      return false;
-    } catch (e) {
-      debugPrint('Error saving settings: $e');
-      return false;
-    } finally {
-      _isLoading = false;
+      debugPrint('✅ Settings saved: ${_settings.toJson()}');
       notifyListeners();
+    } catch (e) {
+      debugPrint('❌ Error saving settings: $e');
+      rethrow;
     }
   }
 
-  // Update Flask IP
-  Future<bool> updateFlaskIp(String ipAddress, {int port = 5000}) async {
+  // ============================================
+  // Update Individual Settings
+  // ============================================
+  Future<void> updateFlaskIp(String ip, int port) async {
     final newSettings = _settings.copyWith(
-      flaskIpAddress: ipAddress,
+      flaskIpAddress: ip,
       flaskPort: port,
     );
-    return await saveSettings(newSettings);
+    await saveSettings(newSettings);
   }
 
-  // Reset to default
-  Future<bool> resetToDefault() async {
-    return await saveSettings(AppSettings.defaultSettings());
+  Future<void> updateEsp32CamIp(String ip, int port) async {
+    final newSettings = _settings.copyWith(
+      esp32CamIpAddress: ip,
+      esp32CamPort: port,
+    );
+    await saveSettings(newSettings);
+  }
+
+  Future<void> toggleStreamSource(bool useEsp32Cam) async {
+    final newSettings = _settings.copyWith(
+      useEsp32CamForStream: useEsp32Cam,
+    );
+    await saveSettings(newSettings);
+  }
+
+  // ============================================
+  // Reset to Defaults
+  // ============================================
+  Future<void> resetToDefaults() async {
+    await saveSettings(AppSettings.defaultSettings());
   }
 }

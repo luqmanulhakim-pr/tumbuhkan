@@ -7,7 +7,7 @@ import 'config/theme.dart';
 import 'services/mqtt_service.dart';
 import 'services/gemini_service.dart';
 import 'services/firebase_auth_service.dart';
-import 'services/settings_service.dart'; // 🆕 Import
+import 'services/settings_service.dart'; 
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -29,7 +29,8 @@ void main() async {
   runApp(
     MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => SettingsService()), // 🆕 Add FIRST
+        ChangeNotifierProvider(
+            create: (_) => SettingsService()), // 🆕 Add FIRST
         ChangeNotifierProvider(create: (_) => MqttService()),
         ChangeNotifierProvider(create: (_) => GeminiService()),
         ChangeNotifierProvider(create: (_) => FirebaseAuthService()),

@@ -99,10 +99,7 @@ class AppConstants {
   static const String harvestPrediction = '12 Hari lagi';
 
   //Chatbot
-   static const String geminiApiKey = String.fromEnvironment(
-    'API_KEY_GEMINI',
-    defaultValue: '', // Kosongkan default value agar aman
-  );
+  static const String geminiApiKey = 'AIzaSyBqWUMVZMZEa1D4HM1TwjWwqMaC-s_QveU';
   static const String geminiModel = 'gemini-2.5-flash';
   static const int geminiMaxTokens = 2048;
   static const double geminiTemperature = 0.7;

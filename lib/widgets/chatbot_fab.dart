@@ -9,6 +9,7 @@ class ChatBotFAB extends StatelessWidget {
     return FloatingActionButton.extended(
       onPressed: () {
         Navigator.of(context).pushNamed(AppRoutes.chatbot);
+        debugPrint('api : ${String.fromEnvironment('API_KEY_GEMINI')}');
       },
       backgroundColor: const Color(0xFF2E7D32),
       elevation: 4,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../services/settings_service.dart';
 import '../../services/firebase_auth_service.dart';
+import '../../models/settings_model.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -12,9 +13,17 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _ipController = TextEditingController();
-  final _portController = TextEditingController();
+
+  // Flask Controllers
+  final _flaskIpController = TextEditingController();
+  final _flaskPortController = TextEditingController();
+
+  // ESP32-CAM Controllers
+  final _esp32IpController = TextEditingController();
+  final _esp32PortController = TextEditingController();
+
   bool _isSaving = false;
+  bool _useEsp32Cam = true;
 
   @override
   void initState() {
@@ -25,14 +34,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void _loadCurrentSettings() {
     final settings =
         Provider.of<SettingsService>(context, listen: false).settings;
-    _ipController.text = settings.flaskIpAddress;
-    _portController.text = settings.flaskPort.toString();
+
+    // Flask
+    _flaskIpController.text = settings.flaskIpAddress;
+    _flaskPortController.text = settings.flaskPort.toString();
+
+    // ESP32-CAM
+    _esp32IpController.text = settings.esp32CamIpAddress;
+    _esp32PortController.text = settings.esp32CamPort.toString();
+
+    // Toggle
+    _useEsp32Cam = settings.useEsp32CamForStream;
   }
 
   @override
   void dispose() {
-    _ipController.dispose();
-    _portController.dispose();
+    _flaskIpController.dispose();
+    _flaskPortController.dispose();
+    _esp32IpController.dispose();
+    _esp32PortController.dispose();
     super.dispose();
   }
 
@@ -41,25 +61,54 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     setState(() => _isSaving = true);
 
-    final settingsService =
-        Provider.of<SettingsService>(context, listen: false);
-    final success = await settingsService.updateFlaskIp(
-      _ipController.text.trim(),
-      port: int.tryParse(_portController.text) ?? 5000,
-    );
+    try {
+      final settingsService =
+          Provider.of<SettingsService>(context, listen: false);
 
-    setState(() => _isSaving = false);
+      final newSettings = AppSettings(
+        flaskIpAddress: _flaskIpController.text.trim(),
+        flaskPort: int.tryParse(_flaskPortController.text) ?? 5000,
+        esp32CamIpAddress: _esp32IpController.text.trim(),
+        esp32CamPort: int.tryParse(_esp32PortController.text) ?? 80,
+        useEsp32CamForStream: _useEsp32Cam,
+      );
 
-    if (!mounted) return;
+      await settingsService.saveSettings(newSettings);
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(success
-            ? '✅ Settings saved successfully!'
-            : '❌ Failed to save settings'),
-        backgroundColor: success ? Colors.green : Colors.red,
-      ),
-    );
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Row(
+            children: [
+              Icon(Icons.check_circle, color: Colors.white),
+              SizedBox(width: 12),
+              Text('✅ Settings saved successfully!'),
+            ],
+          ),
+          backgroundColor: Colors.green,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.error, color: Colors.white),
+              const SizedBox(width: 12),
+              Expanded(child: Text('❌ Error: $e')),
+            ],
+          ),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } finally {
+      setState(() => _isSaving = false);
+    }
   }
 
   Future<void> _resetSettings() async {
@@ -86,18 +135,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     final settingsService =
         Provider.of<SettingsService>(context, listen: false);
-    final success = await settingsService.resetToDefault();
+    await settingsService.resetToDefaults();
+    _loadCurrentSettings();
 
-    if (success) {
-      _loadCurrentSettings();
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('✅ Settings reset to default'),
-          backgroundColor: Colors.green,
-        ),
-      );
-    }
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('✅ Settings reset to default'),
+        backgroundColor: Colors.green,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 
   Future<void> _logout() async {
@@ -143,26 +192,89 @@ class _SettingsScreenState extends State<SettingsScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Flask Server Settings
-              _buildSectionTitle('Flask Server Configuration'),
+              // ============================================
+              // FLASK SERVER SETTINGS
+              // ============================================
+              _buildSectionTitle('🖥️ Flask Backend Server'),
+              const SizedBox(height: 8),
+              const Text(
+                'For uploading photos and disease detection',
+                style: TextStyle(fontSize: 12, color: Colors.grey),
+              ),
               const SizedBox(height: 12),
-              _buildIpAddressField(),
+              _buildIpAddressField(
+                controller: _flaskIpController,
+                label: 'Flask IP Address',
+                hint: '192.168.2.80',
+              ),
               const SizedBox(height: 16),
-              _buildPortField(),
+              _buildPortField(
+                controller: _flaskPortController,
+                label: 'Flask Port',
+                hint: '5000',
+              ),
+              const SizedBox(height: 30),
+
+              // ============================================
+              // STREAM SOURCE SELECTION
+              // ============================================
+              _buildSectionTitle('📹 Video Stream Source'),
+              const SizedBox(height: 16),
+              _buildStreamSourceToggle(),
               const SizedBox(height: 20),
 
-              // Preview URL
+              // ============================================
+              // ESP32-CAM SETTINGS (Conditional)
+              // ============================================
+              AnimatedSize(
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeInOut,
+                child: _useEsp32Cam
+                    ? Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildSectionTitle('📷 ESP32-CAM Configuration'),
+                          const SizedBox(height: 8),
+                          const Text(
+                            'For real-time plant monitoring',
+                            style: TextStyle(fontSize: 12, color: Colors.grey),
+                          ),
+                          const SizedBox(height: 12),
+                          _buildIpAddressField(
+                            controller: _esp32IpController,
+                            label: 'ESP32-CAM IP Address',
+                            hint: '192.168.43.100',
+                          ),
+                          const SizedBox(height: 16),
+                          _buildPortField(
+                            controller: _esp32PortController,
+                            label: 'ESP32-CAM Port',
+                            hint: '80',
+                          ),
+                          const SizedBox(height: 20),
+                        ],
+                      )
+                    : const SizedBox.shrink(),
+              ),
+
+              // ============================================
+              // PREVIEW URLs
+              // ============================================
               _buildPreviewCard(),
               const SizedBox(height: 20),
 
-              // Action Buttons
+              // ============================================
+              // ACTION BUTTONS
+              // ============================================
               _buildSaveButton(),
               const SizedBox(height: 12),
               _buildResetButton(),
               const SizedBox(height: 40),
 
-              // Logout Section
-              _buildSectionTitle('Account'),
+              // ============================================
+              // ACCOUNT SECTION
+              // ============================================
+              _buildSectionTitle('👤 Account'),
               const SizedBox(height: 12),
               _buildLogoutButton(),
             ],
@@ -171,6 +283,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
     );
   }
+
+  // ============================================
+  // UI COMPONENTS
+  // ============================================
 
   Widget _buildSectionTitle(String title) {
     return Text(
@@ -183,14 +299,57 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Widget _buildIpAddressField() {
+  Widget _buildStreamSourceToggle() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: Column(
+        children: [
+          RadioListTile<bool>(
+            value: true,
+            groupValue: _useEsp32Cam,
+            onChanged: (value) {
+              setState(() => _useEsp32Cam = value ?? true);
+            },
+            title: const Text('ESP32-CAM'),
+            subtitle: const Text('Real-time monitoring from greenhouse'),
+            secondary: const Icon(Icons.videocam, color: Color(0xFF2E7D32)),
+            activeColor: const Color(0xFF2E7D32),
+          ),
+          const Divider(height: 1),
+          RadioListTile<bool>(
+            value: false,
+            groupValue: _useEsp32Cam,
+            onChanged: (value) {
+              setState(() => _useEsp32Cam = value ?? false);
+            },
+            title: const Text('Flask Webcam'),
+            subtitle: const Text('Testing mode with laptop camera'),
+            secondary: const Icon(Icons.laptop, color: Color(0xFF1976D2)),
+            activeColor: const Color(0xFF1976D2),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildIpAddressField({
+    required TextEditingController controller,
+    required String label,
+    required String hint,
+  }) {
     return TextFormField(
-      controller: _ipController,
+      controller: controller,
       decoration: InputDecoration(
-        labelText: 'IP Address',
-        hintText: '192.168.1.100',
+        labelText: label,
+        hintText: hint,
         prefixIcon: const Icon(Icons.wifi),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        filled: true,
+        fillColor: Colors.grey.shade50,
       ),
       keyboardType: TextInputType.number,
       validator: (value) {
@@ -216,14 +375,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Widget _buildPortField() {
+  Widget _buildPortField({
+    required TextEditingController controller,
+    required String label,
+    required String hint,
+  }) {
     return TextFormField(
-      controller: _portController,
+      controller: controller,
       decoration: InputDecoration(
-        labelText: 'Port',
-        hintText: '5000',
+        labelText: label,
+        hintText: hint,
         prefixIcon: const Icon(Icons.settings_ethernet),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        filled: true,
+        fillColor: Colors.grey.shade50,
       ),
       keyboardType: TextInputType.number,
       validator: (value) {
@@ -247,21 +412,39 @@ class _SettingsScreenState extends State<SettingsScreen> {
         return Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.blue.shade50,
+            gradient: LinearGradient(
+              colors: [Colors.blue.shade50, Colors.green.shade50],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: Colors.blue.shade200),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Current URLs:',
-                style: TextStyle(fontWeight: FontWeight.bold),
+              Row(
+                children: [
+                  Icon(Icons.link, size: 20, color: Colors.blue.shade700),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'Current URLs Preview:',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 8),
-              _buildUrlRow('Base URL', settings.flaskBaseUrl),
-              _buildUrlRow('Stream', settings.flaskStreamUrl),
-              _buildUrlRow('Upload', settings.flaskUploadUrl),
+              const SizedBox(height: 12),
+              _buildUrlRow(
+                'Stream',
+                settings.streamUrl,
+                _useEsp32Cam ? '📷 ESP32-CAM' : '💻 Flask',
+              ),
+              _buildUrlRow('Upload', settings.flaskUploadUrl, '🖥️ Flask'),
+              _buildUrlRow(
+                  'Growth', settings.flaskUploadGrowthUrl, '🖥️ Flask'),
             ],
           ),
         );
@@ -269,24 +452,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Widget _buildUrlRow(String label, String url) {
+  Widget _buildUrlRow(String label, String url, String source) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
-      child: Row(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(
-            width: 70,
-            child: Text(
-              '$label:',
-              style: const TextStyle(fontSize: 12, color: Colors.grey),
+          Text(
+            '$label ($source):',
+            style: const TextStyle(
+              fontSize: 11,
+              color: Colors.grey,
+              fontWeight: FontWeight.w500,
             ),
           ),
-          Expanded(
-            child: Text(
-              url,
-              style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
-              overflow: TextOverflow.ellipsis,
+          const SizedBox(height: 2),
+          Text(
+            url,
+            style: const TextStyle(
+              fontSize: 12,
+              fontFamily: 'monospace',
+              color: Colors.black87,
             ),
+            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),
@@ -303,7 +491,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ? const SizedBox(
                 width: 20,
                 height: 20,
-                child: CircularProgressIndicator(strokeWidth: 2),
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
               )
             : const Icon(Icons.save),
         label: Text(_isSaving ? 'Saving...' : 'Save Settings'),
@@ -312,6 +503,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           foregroundColor: Colors.white,
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          elevation: 2,
         ),
       ),
     );
@@ -327,7 +519,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         label: const Text('Reset to Default'),
         style: OutlinedButton.styleFrom(
           foregroundColor: Colors.orange,
-          side: const BorderSide(color: Colors.orange),
+          side: const BorderSide(color: Colors.orange, width: 1.5),
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
@@ -348,6 +540,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           foregroundColor: Colors.white,
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          elevation: 2,
         ),
       ),
     );

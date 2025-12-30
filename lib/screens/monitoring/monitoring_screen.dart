@@ -20,10 +20,12 @@ class _MonitoringScreenState extends State<MonitoringScreen> {
     final mqtt = Provider.of<MqttService>(context);
     final settings = Provider.of<SettingsService>(context);
 
-    // 🆕 Debug print saat build
+    // 🆕 Debug print dengan info sumber stream
     debugPrint('═══════════════════════════════════════');
     debugPrint('🟡 [MONITORING SCREEN] Settings loaded:');
-    debugPrint('🟡 Flask Stream URL: ${settings.flaskStreamUrl}');
+    debugPrint(
+        '🟡 Stream Source: ${settings.useEsp32CamForStream ? "ESP32-CAM" : "Flask Webcam"}');
+    debugPrint('🟡 Stream URL: ${settings.streamUrl}');
     debugPrint('🟡 Stream running: $_isStreamRunning');
     debugPrint('═══════════════════════════════════════');
 
@@ -35,6 +37,35 @@ class _MonitoringScreenState extends State<MonitoringScreen> {
         foregroundColor: Colors.white,
         elevation: 0,
         actions: [
+          // 🆕 Stream Source Indicator
+          Container(
+            margin: const EdgeInsets.only(right: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  settings.useEsp32CamForStream ? Icons.videocam : Icons.laptop,
+                  size: 14,
+                  color: Colors.white,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  settings.useEsp32CamForStream ? 'ESP32-CAM' : 'Flask',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // MQTT Status
           Container(
             margin: const EdgeInsets.only(right: 16),
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -79,34 +110,17 @@ class _MonitoringScreenState extends State<MonitoringScreen> {
               child: Stack(
                 alignment: Alignment.center,
                 children: [
+                  // 🆕 Gunakan settings.streamUrl (dynamic)
                   Mjpeg(
                     isLive: _isStreamRunning,
-                    stream: settings.flaskStreamUrl,
+                    stream: settings.streamUrl, // ✅ Pakai streamUrl dynamic
                     error: (context, error, stack) {
                       debugPrint('🔴 [MONITORING SCREEN] Stream error: $error');
-                      return _buildOfflinePlaceholder(settings.flaskStreamUrl);
+                      return _buildOfflinePlaceholder(settings);
                     },
                     loading: (context) {
                       debugPrint('🟡 [MONITORING SCREEN] Stream loading...');
-                      return const Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            CircularProgressIndicator(
-                              color: Colors.white,
-                              strokeWidth: 3,
-                            ),
-                            SizedBox(height: 16),
-                            Text(
-                              'Menghubungkan...',
-                              style: TextStyle(
-                                color: Colors.white70,
-                                fontSize: 14,
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
+                      return _buildLoadingIndicator(settings);
                     },
                   ),
 
@@ -291,14 +305,67 @@ class _MonitoringScreenState extends State<MonitoringScreen> {
     );
   }
 
-  Widget _buildOfflinePlaceholder(String streamUrl) {
+  // 🆕 Loading Indicator dengan info sumber
+  Widget _buildLoadingIndicator(SettingsService settings) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const CircularProgressIndicator(
+            color: Colors.white,
+            strokeWidth: 3,
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            'Menghubungkan...',
+            style: TextStyle(
+              color: Colors.white70,
+              fontSize: 14,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  settings.useEsp32CamForStream ? Icons.videocam : Icons.laptop,
+                  size: 12,
+                  color: Colors.white70,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  settings.useEsp32CamForStream ? 'ESP32-CAM' : 'Flask Webcam',
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 11,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 🆕 Offline Placeholder dengan info sumber
+  Widget _buildOfflinePlaceholder(SettingsService settings) {
+    final streamUrl = settings.streamUrl;
+    final isEsp32Cam = settings.useEsp32CamForStream;
+
     return Container(
       color: Colors.black,
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(
-            Icons.videocam_off,
+          Icon(
+            isEsp32Cam ? Icons.videocam_off : Icons.laptop_chromebook,
             color: Colors.grey,
             size: 48,
           ),
@@ -313,21 +380,56 @@ class _MonitoringScreenState extends State<MonitoringScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Pastikan Flask server berjalan\ndan IP sudah benar.',
+            isEsp32Cam
+                ? 'Pastikan ESP32-CAM aktif\ndan terhubung ke WiFi yang sama.'
+                : 'Pastikan Flask server berjalan\ndan IP sudah benar.',
             textAlign: TextAlign.center,
             style: TextStyle(
               color: Colors.grey[400],
               fontSize: 12,
             ),
           ),
-          const SizedBox(height: 8),
-          Text(
-            'URL: $streamUrl',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: Colors.grey[500],
-              fontSize: 10,
-              fontFamily: 'monospace',
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            margin: const EdgeInsets.symmetric(horizontal: 40),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.05),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.grey.shade700),
+            ),
+            child: Column(
+              children: [
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      isEsp32Cam ? Icons.videocam : Icons.laptop,
+                      size: 14,
+                      color: Colors.grey[500],
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      isEsp32Cam ? 'ESP32-CAM' : 'Flask Webcam',
+                      style: TextStyle(
+                        color: Colors.grey[400],
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  streamUrl,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.grey[500],
+                    fontSize: 10,
+                    fontFamily: 'monospace',
+                  ),
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 16),

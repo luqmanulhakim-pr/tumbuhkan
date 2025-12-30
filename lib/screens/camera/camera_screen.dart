@@ -100,23 +100,28 @@ class _CameraScreenState extends State<CameraScreen> {
     try {
       setState(() => _isUploading = true);
 
-      // 🆕 Ambil settingsService
+      // Ambil settingsService
       final settingsService =
           Provider.of<SettingsService>(context, listen: false);
 
-      // 🆕 Debug print semua URL
+      // 🆕 Debug print dengan info lebih detail
       debugPrint('═══════════════════════════════════════');
-      debugPrint('🟢 [CAMERA SCREEN] Settings loaded:');
-      debugPrint('🟢 Flask Base URL: ${settingsService.flaskBaseUrl}');
-      debugPrint('🟢 Flask Upload URL: ${settingsService.flaskUploadUrl}');
-      debugPrint('🟢 Flask Stream URL: ${settingsService.flaskStreamUrl}');
-      debugPrint('🟢 Flask Images URL: ${settingsService.flaskImagesUrl}');
+      debugPrint('📸 [CAMERA SCREEN] Capture & Upload Started');
+      debugPrint('🖥️  Flask Backend Settings:');
+      debugPrint('   • IP: ${settingsService.flaskIpAddress}');
+      debugPrint('   • Port: ${settingsService.flaskPort}');
+      debugPrint('   • Base URL: ${settingsService.flaskBaseUrl}');
+      debugPrint('   • Upload URL: ${settingsService.flaskUploadUrl}');
+      debugPrint(
+          '📹 Stream Source: ${settingsService.useEsp32CamForStream ? "ESP32-CAM" : "Flask Webcam"}');
+      debugPrint(
+          '   (Upload always goes to Flask, regardless of stream source)');
       debugPrint('═══════════════════════════════════════');
 
       final baseUrl = settingsService.flaskBaseUrl;
 
       final image = await _cameraController!.takePicture();
-      debugPrint('🟢 [CAMERA SCREEN] Image captured: ${image.path}');
+      debugPrint('✅ Image captured: ${image.path}');
 
       if (!mounted) return;
 
@@ -133,16 +138,18 @@ class _CameraScreenState extends State<CameraScreen> {
                 ),
               ),
               SizedBox(width: 12),
-              Text('Uploading image...'),
+              Text('Uploading to Flask server...'),
             ],
           ),
           duration: Duration(seconds: 2),
+          backgroundColor: Color(0xFF1976D2),
+          behavior: SnackBarBehavior.floating,
         ),
       );
 
-      debugPrint('🟢 [CAMERA SCREEN] Calling CameraService.uploadImage()');
+      debugPrint('📤 Uploading to: $baseUrl/upload');
       final result = await CameraService.uploadImage(image.path, baseUrl);
-      debugPrint('🟢 [CAMERA SCREEN] Upload result: $result');
+      debugPrint('📩 Server response: $result');
 
       if (!mounted) return;
 
@@ -154,15 +161,33 @@ class _CameraScreenState extends State<CameraScreen> {
                 const Icon(Icons.check_circle, color: Colors.white, size: 20),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: Text(
-                    'Image uploaded successfully!\n${result['data']?['message'] ?? ''}',
-                    style: const TextStyle(fontSize: 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text(
+                        '✅ Upload Successful!',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        result['data']?['message'] ?? 'Image uploaded to Flask',
+                        style: const TextStyle(fontSize: 11),
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
             backgroundColor: Colors.green,
             duration: const Duration(seconds: 3),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
           ),
         );
       } else {
@@ -173,26 +198,60 @@ class _CameraScreenState extends State<CameraScreen> {
                 const Icon(Icons.error, color: Colors.white, size: 20),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: Text(
-                    'Upload failed: ${result['error']}',
-                    style: const TextStyle(fontSize: 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text(
+                        '❌ Upload Failed',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        result['error'] ?? 'Unknown error',
+                        style: const TextStyle(fontSize: 11),
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
             backgroundColor: Colors.red,
-            duration: const Duration(seconds: 3),
+            duration: const Duration(seconds: 4),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
           ),
         );
       }
+
+      debugPrint('═══════════════════════════════════════\n');
     } catch (e) {
-      debugPrint('🔴 [CAMERA SCREEN] Exception: $e');
+      debugPrint('🔴 Exception during upload: $e');
+      debugPrint('═══════════════════════════════════════\n');
+
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error: $e'),
+          content: Row(
+            children: [
+              const Icon(Icons.error_outline, color: Colors.white, size: 20),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Error: $e',
+                  style: const TextStyle(fontSize: 12),
+                ),
+              ),
+            ],
+          ),
           backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
         ),
       );
     } finally {
@@ -233,6 +292,10 @@ class _CameraScreenState extends State<CameraScreen> {
                       onPressed: _initializeCamera,
                       icon: const Icon(Icons.refresh),
                       label: const Text('Retry'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF1976D2),
+                        foregroundColor: Colors.white,
+                      ),
                     ),
                   ],
                 ),
@@ -357,9 +420,11 @@ class _CameraScreenState extends State<CameraScreen> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  const Text(
-                    'Tap to capture and analyze',
-                    style: TextStyle(
+                  Text(
+                    _isUploading
+                        ? 'Uploading to Flask...'
+                        : 'Tap to capture and analyze',
+                    style: const TextStyle(
                       color: Colors.white70,
                       fontSize: 12,
                     ),
