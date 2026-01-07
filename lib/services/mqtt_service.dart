@@ -5,7 +5,11 @@ import 'package:mqtt_client/mqtt_client.dart';
 import 'package:mqtt_client/mqtt_server_client.dart';
 import '../config/constants.dart';
 import 'mqtt_connection_state.dart';
+import 'mascot_service.dart';
 
+// ============================================
+// Properties (✅ UPDATED - Add new fields)
+// ============================================
 class MqttService extends ChangeNotifier {
   // ============================================
   // Properties
@@ -22,7 +26,14 @@ class MqttService extends ChangeNotifier {
   double _ldrValue = 0.0;
   double _waterTemperature = 0.0;
   double _waterLevel = 0.0;
-  String _waterStatus = 'Unknown';
+
+  // ✅ NEW: Label fields from backend
+  String _phLabel = 'Unknown';
+  String _tdsLabel = 'Unknown';
+  String _ambientLabel = 'Unknown';
+  String _lightLabel = 'Unknown';
+  String _status = 'Unknown';
+  String _timestamp = '';
 
   // Actuator States
   bool _isPumpOn = false;
@@ -37,6 +48,9 @@ class MqttService extends ChangeNotifier {
   DateTime _lastMessageTime = DateTime.now();
   Timer? _heartbeatTimer;
 
+  // Mascot Service
+  MascotService? _mascotService;
+
   // Getters
   double get ph => _ph;
   double get tds => _tds;
@@ -46,7 +60,14 @@ class MqttService extends ChangeNotifier {
   double get ldrValue => _ldrValue;
   double get waterTemperature => _waterTemperature;
   double get waterLevel => _waterLevel;
-  String get waterStatus => _waterStatus;
+
+  // ✅ NEW Getters
+  String get phLabel => _phLabel;
+  String get tdsLabel => _tdsLabel;
+  String get ambientLabel => _ambientLabel;
+  String get lightLabel => _lightLabel;
+  String get status => _status;
+  String get timestamp => _timestamp;
 
   AppMqttConnectionState get connectionState => _connectionState;
   bool get isConnected => _connectionState == AppMqttConnectionState.connected;
@@ -258,12 +279,13 @@ class MqttService extends ChangeNotifier {
   }
 
   // ============================================
-  // ✅ UPDATED: Parse JSON Sensor Data (struktur baru)
+  // ✅ FIXED: Parse JSON Sensor Data (NEW STRUCTURE)
   // ============================================
   void _handleSensorData(String jsonString) {
     try {
       final Map<String, dynamic> data = json.decode(jsonString);
 
+      // Parse all values
       _ph = _parseDouble(data['ph']);
       _tds = _parseDouble(data['tds']);
       _waterFlow = _parseDouble(data['water_flow']);
@@ -272,14 +294,55 @@ class MqttService extends ChangeNotifier {
       _ldrValue = _parseDouble(data['ldr_value']);
       _waterTemperature = _parseDouble(data['water_temperature']);
       _waterLevel = _parseDouble(data['water_level']);
-      _waterStatus = data['status']?.toString() ?? 'Unknown';
 
-      debugPrint(
-          '📊 Data sensor updated: pH=${_ph.toStringAsFixed(2)}, TDS=${_tds.toStringAsFixed(0)}, Status=$_waterStatus');
+      // Parse labels
+      _phLabel = data['ph_label']?.toString() ?? 'Unknown';
+      _tdsLabel = data['tds_label']?.toString() ?? 'Unknown';
+      _ambientLabel = data['ambient_label']?.toString() ?? 'Unknown';
+      _lightLabel = data['light_label']?.toString() ?? 'Unknown';
+      _status = data['status']?.toString() ?? 'Unknown';
+      _timestamp = data['timestamp']?.toString() ?? '';
+
+      // Debug log
+      debugPrint('═══════════════════════════════════════');
+      debugPrint('📊 SENSOR DATA UPDATED');
+      debugPrint('═══════════════════════════════════════');
+      debugPrint('💧 Water Level  : ${_waterLevel.toStringAsFixed(0)}%');
+      debugPrint('🧪 pH           : ${_ph.toStringAsFixed(2)} ($_phLabel)');
+      debugPrint('💛 TDS          : ${_tds.toStringAsFixed(0)} ppm ($_tdsLabel)');
+      debugPrint('🌡️  Air Temp     : ${_airTemperature.toStringAsFixed(1)}°C');
+      debugPrint('💦 Water Temp   : ${_waterTemperature.toStringAsFixed(1)}°C');
+      debugPrint('💧 Humidity     : ${_airHumidity.toStringAsFixed(0)}%');
+      debugPrint('☀️  LDR          : ${_ldrValue.toStringAsFixed(0)} ($_lightLabel)');
+      debugPrint('🌊 Water Flow   : ${_waterFlow.toStringAsFixed(2)} L/min');
+      debugPrint('🎯 Ambient      : $_ambientLabel');
+      debugPrint('📊 Status       : $_status');
+      debugPrint('⏰ Timestamp    : $_timestamp');
+      debugPrint('═══════════════════════════════════════');
 
       notifyListeners();
+
+      // ✅ AUTO-UPDATE MASCOT STATE
+      debugPrint('🌱 [MQTT] Mascot service status: ${_mascotService != null ? "LINKED ✅" : "NOT LINKED ❌"}');
+
+      if (_mascotService != null) {
+        debugPrint('🌱 [MQTT] Updating mascot state...');
+        debugPrint('   Temp: $_airTemperature, pH: $_ph, TDS: $_tds, Water: $_waterLevel%');
+
+        _mascotService!.updateState(
+          temperature: _airTemperature,
+          phValue: _ph,
+          nutrientLevel: _tds,
+          waterLevel: _waterLevel,              // ✅ NOW PASSING
+          isConnected: _connectionState == MqttConnectionState.connected, // ✅ NOW PASSING
+        );
+      } else {
+        debugPrint('⚠️ [MQTT] MascotService not linked! Cannot update Tumu state.');
+      }
+
     } catch (e) {
-      debugPrint('❌ Error parsing JSON: $e');
+      debugPrint('❌ [MQTT] Error parsing sensor JSON: $e');
+      debugPrint('📄 Raw payload: $jsonString');
     }
   }
 
@@ -413,5 +476,14 @@ class MqttService extends ChangeNotifier {
     _heartbeatTimer?.cancel();
     disconnect();
     super.dispose();
+  }
+
+  // ============================================
+  // ✅ FIXED: Connect Method dengan protocol yang benar
+  // ============================================
+  void setMascotService(MascotService mascotService) {
+    _mascotService = mascotService;
+    debugPrint('🔗 [MQTT] MascotService linked: ${mascotService.runtimeType}');
+    debugPrint('   Current state: ${mascotService.currentState.name}');
   }
 }

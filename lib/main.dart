@@ -2,12 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:tumbuhkan/services/mascot_service.dart'; // 🆕 IMPORT INI
 import 'config/routes.dart';
 import 'config/theme.dart';
 import 'services/mqtt_service.dart';
 import 'services/gemini_service.dart';
 import 'services/firebase_auth_service.dart';
-import 'services/settings_service.dart'; 
+import 'services/settings_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -29,11 +30,12 @@ void main() async {
   runApp(
     MultiProvider(
       providers: [
-        ChangeNotifierProvider(
-            create: (_) => SettingsService()), // 🆕 Add FIRST
+        ChangeNotifierProvider(create: (_) => SettingsService()),
         ChangeNotifierProvider(create: (_) => MqttService()),
         ChangeNotifierProvider(create: (_) => GeminiService()),
         ChangeNotifierProvider(create: (_) => FirebaseAuthService()),
+        ChangeNotifierProvider(
+            create: (_) => MascotService()), 
       ],
       child: const TumbuhkanApp(),
     ),
@@ -52,6 +54,7 @@ class TumbuhkanApp extends StatelessWidget {
       initialRoute: AppRoutes.splash,
       routes: AppRoutes.routes,
       onGenerateRoute: AppRoutes.onGenerateRoute,
+      // home: const TestTumuScreen(), // ⏸️ Comment untuk production
     );
   }
 }
