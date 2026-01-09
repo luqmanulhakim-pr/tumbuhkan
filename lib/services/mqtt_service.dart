@@ -27,6 +27,10 @@ class MqttService extends ChangeNotifier {
   double _waterTemperature = 0.0;
   double _waterLevel = 0.0;
 
+  // ✅ NEW: Add pH voltage field
+  double _phVoltage = 0.0;
+  double _tdsVoltage = 0.0;
+
   // ✅ NEW: Label fields from backend
   String _phLabel = 'Unknown';
   String _tdsLabel = 'Unknown';
@@ -55,11 +59,17 @@ class MqttService extends ChangeNotifier {
   double get ph => _ph;
   double get tds => _tds;
   double get waterFlow => _waterFlow;
+  double get flow => _waterFlow; // Alias
   double get airHumidity => _airHumidity;
   double get airTemperature => _airTemperature;
   double get ldrValue => _ldrValue;
+  int get ldr => _ldrValue.toInt(); // Alias
   double get waterTemperature => _waterTemperature;
   double get waterLevel => _waterLevel;
+
+  // ✅ NEW: Add voltage getters
+  double get phVoltage => _phVoltage;
+  double get tdsVoltage => _tdsVoltage;
 
   // ✅ NEW Getters
   String get phLabel => _phLabel;
@@ -299,20 +309,18 @@ class MqttService extends ChangeNotifier {
     try {
       final Map<String, dynamic> data = json.decode(jsonString);
 
-      // Parse sensor values from ESP32 payload
-      // {"ph":-12.9307,"ph_voltage":3.334714,"tds":0.900027,"tds_voltage":0.00225,
-      //  "temp_air":26.75,"temp_udara":26.6,"humidity":76.4,"ldr":2864,"distance":-1,"flow":0}
-
       _ph = _parseDouble(data['ph']);
       _tds = _parseDouble(data['tds']);
-      _waterTemperature = _parseDouble(data['temp_air']); // temp_air = suhu air
-      _airTemperature =
-          _parseDouble(data['temp_udara']); // temp_udara = suhu udara
+      _waterTemperature = _parseDouble(data['temp_air']);
+      _airTemperature = _parseDouble(data['temp_udara']);
       _airHumidity = _parseDouble(data['humidity']);
       _ldrValue = _parseDouble(data['ldr']);
-      _waterLevel =
-          _parseDouble(data['distance']); // ultrasonic distance sensor
+      _waterLevel = _parseDouble(data['distance']);
       _waterFlow = _parseDouble(data['flow']);
+
+      // ✅ NEW: Parse voltage values
+      _phVoltage = _parseDouble(data['ph_voltage']);
+      _tdsVoltage = _parseDouble(data['tds_voltage']);
 
       // Calculate labels based on values
       _phLabel = _getPhLabel(_ph);
@@ -326,15 +334,17 @@ class MqttService extends ChangeNotifier {
       debugPrint('📊 SENSOR DATA UPDATED (ESP32)');
       debugPrint('═══════════════════════════════════════');
       debugPrint('🧪 pH           : ${_ph.toStringAsFixed(2)} ($_phLabel)');
+      debugPrint('   pH Voltage   : ${_phVoltage.toStringAsFixed(4)}V');
       debugPrint(
           '💛 TDS          : ${_tds.toStringAsFixed(2)} ppm ($_tdsLabel)');
+      debugPrint('   TDS Voltage  : ${_tdsVoltage.toStringAsFixed(5)}V');
       debugPrint('🌡️  Air Temp     : ${_airTemperature.toStringAsFixed(1)}°C');
       debugPrint('💦 Water Temp   : ${_waterTemperature.toStringAsFixed(1)}°C');
       debugPrint('💧 Humidity     : ${_airHumidity.toStringAsFixed(0)}%');
       debugPrint(
           '☀️  LDR          : ${_ldrValue.toStringAsFixed(0)} ($_lightLabel)');
       debugPrint('📏 Distance     : ${_waterLevel.toStringAsFixed(1)} cm');
-      debugPrint('� Water Flow   : ${_waterFlow.toStringAsFixed(2)} L/min');
+      debugPrint('💧 Water Flow   : ${_waterFlow.toStringAsFixed(2)} L/min');
       debugPrint('═══════════════════════════════════════');
 
       // Notify listeners
@@ -503,6 +513,46 @@ class MqttService extends ChangeNotifier {
   void publishCameraStatus(String status) {
     if (!isConnected) return;
     publish(AppConstants.topicCameraStatus, status);
+  }
+
+  // ============================================
+  // Calibration Methods
+  // ============================================
+
+  /// Mengirim kalibrasi sensor pH dengan nilai voltase dari user
+  void publishPhCalibration(double v4, double v7, double v9) {
+    if (!isConnected) {
+      debugPrint('⚠️ Gagal mengirim kalibrasi pH: MQTT Disconnected');
+      return;
+    }
+
+    final calibrationData = jsonEncode({
+      'v4': double.parse(v4.toStringAsFixed(4)),
+      'v7': double.parse(v7.toStringAsFixed(4)),
+      'v9': double.parse(v9.toStringAsFixed(4)),
+    });
+
+    publish(AppConstants.topicPhCalibration, calibrationData);
+    debugPrint('📊 Mengirim kalibrasi pH: $calibrationData');
+  }
+
+  /// Mengirim kalibrasi sensor TDS dengan koefisien m dan c
+  /// Rumus: TDS = m * voltage + c
+  /// m = 500 / (V1000 - V500)
+  /// c = 500 - m * V500
+  void publishTdsCalibration(double m, double c) {
+    if (!isConnected) {
+      debugPrint('⚠️ Gagal mengirim kalibrasi TDS: MQTT Disconnected');
+      return;
+    }
+
+    final calibrationData = jsonEncode({
+      'm': double.parse(m.toStringAsFixed(2)),
+      'c': double.parse(c.toStringAsFixed(2)),
+    });
+
+    publish(AppConstants.topicTdsCalibration, calibrationData);
+    debugPrint('📊 Mengirim kalibrasi TDS: $calibrationData');
   }
 
   // ============================================

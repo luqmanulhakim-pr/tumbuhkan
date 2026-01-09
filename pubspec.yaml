@@ -47,6 +47,9 @@ dependencies:
   google_sign_in: ^6.2.2
   shared_preferences: ^2.2.2
 
+  # Audio
+  audioplayers: ^6.0.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -61,3 +64,4 @@ flutter:
     - assets/
     - assets/images/
     - assets/rive/
+    - assets/soundbg/

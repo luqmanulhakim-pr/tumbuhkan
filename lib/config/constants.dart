@@ -2,8 +2,8 @@ class AppConstants {
   // ============================================
   // MQTT Configuration
   // ============================================
-  // static const String mqttBrokerUrl = 'broker.mqtt.cool';
-  static const String mqttBrokerUrl = 'broker.hivemq.com';
+  static const String mqttBrokerUrl = 'broker.mqtt.cool';
+  // static const String mqttBrokerUrl = 'broker.hivemq.com';
   static const int mqttPort = 1883;
   static const String mqttClientId = 'tumbuhkan_flutter_client';
   static const int mqttKeepAlive = 60;

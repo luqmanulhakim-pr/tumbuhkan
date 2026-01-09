@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
+import 'package:audioplayers/audioplayers.dart';
 import '../../models/mascot_state.dart';
 import '../../services/mqtt_service.dart';
 import '../../services/mascot_service.dart';
@@ -15,9 +16,13 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  late AudioPlayer _audioPlayer;
+  bool _isMusicPlaying = false;
+
   @override
   void initState() {
     super.initState();
+    _initAudioPlayer();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -43,6 +48,37 @@ class _HomeScreenState extends State<HomeScreen> {
         }
       });
     });
+  }
+
+  void _initAudioPlayer() {
+    _audioPlayer = AudioPlayer();
+    _audioPlayer.setReleaseMode(ReleaseMode.loop);
+    _audioPlayer.setVolume(0.3); // 30% volume
+    _playBackgroundMusic();
+  }
+
+  Future<void> _playBackgroundMusic() async {
+    try {
+      await _audioPlayer.play(AssetSource('soundbg/Enjoy.mp3'));
+      setState(() => _isMusicPlaying = true);
+    } catch (e) {
+      debugPrint('Error playing music: $e');
+    }
+  }
+
+  void _toggleMusic() {
+    if (_isMusicPlaying) {
+      _audioPlayer.pause();
+    } else {
+      _audioPlayer.resume();
+    }
+    setState(() => _isMusicPlaying = !_isMusicPlaying);
+  }
+
+  @override
+  void dispose() {
+    _audioPlayer.dispose();
+    super.dispose();
   }
 
   @override
@@ -183,49 +219,38 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
         ),
-        const SizedBox(width: 10),
+        const SizedBox(width: 8),
+        // Label outside the bar
+        SizedBox(
+          width: 50,
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
+        ),
+        const SizedBox(width: 6),
+        // Progress bar
         Expanded(
-          child: Stack(
-            children: [
-              Container(
-                height: 10,
+          child: Container(
+            height: 8,
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.4),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: FractionallySizedBox(
+              alignment: Alignment.centerLeft,
+              widthFactor: percentage,
+              child: Container(
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.4),
-                  borderRadius: BorderRadius.circular(8),
+                  color: color,
+                  borderRadius: BorderRadius.circular(4),
                 ),
               ),
-              FractionallySizedBox(
-                widthFactor: percentage,
-                child: Container(
-                  height: 10,
-                  decoration: BoxDecoration(
-                    color: color,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-              ),
-              SizedBox(
-                height: 10,
-                child: Center(
-                  child: Text(
-                    label,
-                    style: const TextStyle(
-                      fontSize: 9,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                      letterSpacing: 0.5,
-                      shadows: [
-                        Shadow(
-                          color: Colors.black26,
-                          offset: Offset(0, 1),
-                          blurRadius: 2,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ],
@@ -233,22 +258,65 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildTemperatureInfo(MqttService mqtt) {
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SvgPicture.asset(
-          'assets/images/icon_tempereture.svg',
-          width: 28,
-          height: 28,
+        // Temperature & Humidity row
+        Row(
+          children: [
+            SvgPicture.asset(
+              'assets/images/icon_tempereture.svg',
+              width: 20,
+              height: 20,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              '${mqtt.airTemperature.toStringAsFixed(0)}°, ${mqtt.waterTemperature.toStringAsFixed(0)}°, ${mqtt.airHumidity.toStringAsFixed(0)}%',
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF29ABFF),
+                letterSpacing: -0.3,
+              ),
+            ),
+          ],
         ),
-        const SizedBox(width: 8),
-        Text(
-          '${mqtt.airTemperature.toStringAsFixed(0)}°, ${mqtt.waterTemperature.toStringAsFixed(0)}°, ${mqtt.airHumidity.toStringAsFixed(0)}%',
-          style: const TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: Color(0xFF29ABFF),
-            letterSpacing: -0.5,
-          ),
+        const SizedBox(height: 6),
+        // LDR & Flow row
+        Row(
+          children: [
+            SvgPicture.asset(
+              'assets/images/icon_sun.svg',
+              width: 16,
+              height: 16,
+              color: const Color(0xFFFFA000),
+            ),
+            const SizedBox(width: 4),
+            Text(
+              '${mqtt.ldr}',
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFFFFA000),
+              ),
+            ),
+            const SizedBox(width: 12),
+            SvgPicture.asset(
+              'assets/images/icon_water.svg',
+              width: 16,
+              height: 16,
+              color: const Color(0xFF00BCD4),
+            ),
+            const SizedBox(width: 4),
+            Text(
+              '${mqtt.flow.toStringAsFixed(1)} L/m',
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF00BCD4),
+              ),
+            ),
+          ],
         ),
       ],
     );
@@ -257,19 +325,34 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildActionButtons() {
     return Column(
       children: [
-        _buildActionButton(
-          'assets/images/icon_setting.svg',
-          () => Navigator.pushNamed(context, '/settings'),
+        const SizedBox(height: 10),
+        // First row
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildActionButton(
+              'assets/images/icon_setting.svg',
+              () => Navigator.pushNamed(context, '/settings'),
+            ),
+            const SizedBox(width: 10),
+            _buildActionButton(
+              'assets/images/icon_log.svg',
+              () => Navigator.pushNamed(context, '/log'),
+            ),
+          ],
         ),
-        const SizedBox(height: 12),
-        _buildActionButton(
-          'assets/images/icon_log.svg',
-          () => Navigator.pushNamed(context, '/log'),
-        ),
-        const SizedBox(height: 12),
-        _buildActionButton(
-          'assets/images/icon_camera.svg',
-          () => Navigator.pushNamed(context, '/monitoring'),
+        const SizedBox(height: 10),
+        // Second row
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildActionButton(
+              'assets/images/icon_camera.svg',
+              () => Navigator.pushNamed(context, '/monitoring'),
+            ),
+            const SizedBox(width: 10),
+            _buildMusicButton(),
+          ],
         ),
       ],
     );
@@ -297,6 +380,34 @@ class _HomeScreenState extends State<HomeScreen> {
             iconPath,
             width: 24,
             height: 24,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMusicButton() {
+    return GestureDetector(
+      onTap: _toggleMusic,
+      child: Container(
+        width: 48,
+        height: 48,
+        decoration: BoxDecoration(
+          color: _isMusicPlaying ? const Color(0xFF29ABFF) : Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Center(
+          child: Icon(
+            _isMusicPlaying ? Icons.music_note : Icons.music_off,
+            size: 24,
+            color: _isMusicPlaying ? Colors.white : Colors.grey,
           ),
         ),
       ),

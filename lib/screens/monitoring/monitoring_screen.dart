@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_mjpeg/flutter_mjpeg.dart';
 import 'package:provider/provider.dart';
-import '../../config/constants.dart';
 import '../../services/mqtt_service.dart';
 import '../../services/settings_service.dart';
 
@@ -20,352 +19,371 @@ class _MonitoringScreenState extends State<MonitoringScreen> {
     final mqtt = Provider.of<MqttService>(context);
     final settings = Provider.of<SettingsService>(context);
 
-    // 🆕 Debug print dengan info sumber stream
-    debugPrint('═══════════════════════════════════════');
-    debugPrint('🟡 [MONITORING SCREEN] Settings loaded:');
-    debugPrint(
-        '🟡 Stream Source: ${settings.useEsp32CamForStream ? "ESP32-CAM" : "Flask Webcam"}');
-    debugPrint('🟡 Stream URL: ${settings.streamUrl}');
-    debugPrint('🟡 Stream running: $_isStreamRunning');
-    debugPrint('═══════════════════════════════════════');
-
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
-      appBar: AppBar(
-        title: const Text('Live Monitoring'),
-        backgroundColor: const Color(0xFF1976D2),
-        foregroundColor: Colors.white,
-        elevation: 0,
-        actions: [
-          // 🆕 Stream Source Indicator
-          Container(
-            margin: const EdgeInsets.only(right: 8),
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  settings.useEsp32CamForStream ? Icons.videocam : Icons.laptop,
-                  size: 14,
-                  color: Colors.white,
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  settings.useEsp32CamForStream ? 'ESP32-CAM' : 'Flask',
-                  style: const TextStyle(
-                    fontSize: 11,
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          // MQTT Status
-          Container(
-            margin: const EdgeInsets.only(right: 16),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: mqtt.isConnected
-                  ? Colors.white.withOpacity(0.2)
-                  : Colors.red.withOpacity(0.3),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  mqtt.isConnected ? Icons.cloud_done : Icons.cloud_off,
-                  size: 16,
-                  color: Colors.white,
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  mqtt.isConnected ? 'Online' : 'Offline',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          )
-        ],
-      ),
-      body: Column(
-        children: [
-          // =============================================
-          // VIDEO STREAM SECTION (60% height)
-          // =============================================
-          Expanded(
-            flex: 6,
-            child: Container(
-              color: Colors.black,
-              width: double.infinity,
-              child: Stack(
-                alignment: Alignment.center,
+      backgroundColor: const Color(0xFF29ABFF),
+      body: SafeArea(
+        child: Column(
+          children: [
+            // =============================================
+            // HEADER
+            // =============================================
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              child: Row(
                 children: [
-                  // 🆕 Gunakan settings.streamUrl (dynamic)
-                  Mjpeg(
-                    isLive: _isStreamRunning,
-                    stream: settings.streamUrl, // ✅ Pakai streamUrl dynamic
-                    error: (context, error, stack) {
-                      debugPrint('🔴 [MONITORING SCREEN] Stream error: $error');
-                      return _buildOfflinePlaceholder(settings);
-                    },
-                    loading: (context) {
-                      debugPrint('🟡 [MONITORING SCREEN] Stream loading...');
-                      return _buildLoadingIndicator(settings);
-                    },
+                  GestureDetector(
+                    onTap: () => Navigator.pop(context),
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(
+                        Icons.arrow_back_ios_new,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                    ),
                   ),
+                  const SizedBox(width: 16),
+                  const Expanded(
+                    child: Text(
+                      'ESP32-CAM Monitor',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                  // Connection status
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: mqtt.isConnected
+                          ? Colors.green.withOpacity(0.3)
+                          : Colors.red.withOpacity(0.3),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          mqtt.isConnected ? Icons.wifi : Icons.wifi_off,
+                          size: 14,
+                          color: Colors.white,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          mqtt.isConnected ? 'Online' : 'Offline',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
 
-                  // LIVE Badge
-                  if (_isStreamRunning)
+            // =============================================
+            // STATUS CARDS (Plant Class & Water Condition)
+            // =============================================
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Row(
+                children: [
+                  // Plant Class Card
+                  Expanded(
+                    child: _buildStatusCard(
+                      icon: Icons.eco,
+                      label: 'Kelas Tumbuhan',
+                      value: mqtt.status,
+                      color: Colors.green,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  // Water Condition Card
+                  Expanded(
+                    child: _buildStatusCard(
+                      icon: Icons.water_drop,
+                      label: 'Kondisi Air',
+                      value: _getWaterCondition(mqtt),
+                      color: Colors.cyan,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            // =============================================
+            // CAMERA SECTION
+            // =============================================
+            Expanded(
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 20),
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: Colors.black,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.3),
+                      blurRadius: 15,
+                      offset: const Offset(0, 5),
+                    ),
+                  ],
+                ),
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    // Camera Stream
+                    Mjpeg(
+                      isLive: _isStreamRunning,
+                      stream: settings.streamUrl,
+                      error: (context, error, stack) {
+                        return _buildOfflinePlaceholder(settings);
+                      },
+                      loading: (context) {
+                        return _buildLoadingIndicator();
+                      },
+                    ),
+
+                    // LIVE Badge
+                    if (_isStreamRunning)
+                      Positioned(
+                        top: 12,
+                        left: 12,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 5,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.red,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.circle, color: Colors.white, size: 8),
+                              SizedBox(width: 6),
+                              Text(
+                                'LIVE',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 11,
+                                  letterSpacing: 1,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+
+                    // Stream source badge
                     Positioned(
-                      top: 16,
-                      left: 16,
+                      top: 12,
+                      right: 12,
                       child: Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 10,
-                          vertical: 6,
+                          vertical: 5,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.red,
+                          color: Colors.black.withOpacity(0.5),
                           borderRadius: BorderRadius.circular(6),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.red.withOpacity(0.5),
-                              blurRadius: 8,
-                              spreadRadius: 2,
-                            ),
-                          ],
                         ),
-                        child: const Row(
+                        child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.circle, color: Colors.white, size: 8),
-                            SizedBox(width: 6),
+                            Icon(
+                              settings.useEsp32CamForStream
+                                  ? Icons.videocam
+                                  : Icons.laptop,
+                              size: 12,
+                              color: Colors.white70,
+                            ),
+                            const SizedBox(width: 6),
                             Text(
-                              'LIVE',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 12,
-                                letterSpacing: 1,
+                              settings.useEsp32CamForStream
+                                  ? 'ESP32-CAM'
+                                  : 'Flask',
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
                           ],
                         ),
                       ),
                     ),
-                ],
-              ),
-            ),
-          ),
 
-          // =============================================
-          // STATISTICS SECTION (40% height + scrollable)
-          // =============================================
-          Expanded(
-            flex: 4,
-            child: Container(
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(24),
-                  topRight: Radius.circular(24),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 10,
-                    offset: const Offset(0, -5),
-                  ),
-                ],
-              ),
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Header
-                    const Row(
-                      children: [
-                        Icon(
-                          Icons.analytics_outlined,
-                          color: Color(0xFF1976D2),
-                          size: 22,
-                        ),
-                        SizedBox(width: 8),
-                        Text(
-                          'Statistik Pertumbuhan',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF0D47A1),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Berdasarkan analisis AI terakhir',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey[600],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Statistics Cards
-                    Row(
-                      children: [
-                        _buildStatCard(
-                          icon: Icons.height,
-                          label: 'Tinggi',
-                          value: AppConstants.plantHeight,
-                          color: Colors.green,
-                        ),
-                        const SizedBox(width: 10),
-                        _buildStatCard(
-                          icon: Icons.eco,
-                          label: 'Daun',
-                          value: AppConstants.plantLeafCount,
-                          color: Colors.teal,
-                        ),
-                        const SizedBox(width: 10),
-                        _buildStatCard(
-                          icon: Icons.health_and_safety,
-                          label: 'Sehat',
-                          value: AppConstants.plantHealthScore,
-                          color: Colors.blue,
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    // Harvest Prediction
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF1976D2).withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: const Color(0xFF1976D2).withOpacity(0.3),
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(
-                            Icons.calendar_today,
-                            color: Color(0xFF1976D2),
-                            size: 16,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Prediksi Panen: ${AppConstants.harvestPrediction}',
-                            style: const TextStyle(
-                              color: Color(0xFF1976D2),
-                              fontWeight: FontWeight.w600,
-                              fontSize: 13,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    const SizedBox(height: 80),
+                    // Capture button
+                    // Positioned(
+                    //   bottom: 16,
+                    //   child: GestureDetector(
+                    //     onTap: () => _handleCapture(context, mqtt),
+                    //     child: Container(
+                    //       padding: const EdgeInsets.symmetric(
+                    //         horizontal: 24,
+                    //         vertical: 12,
+                    //       ),
+                    //       decoration: BoxDecoration(
+                    //         color: Colors.white,
+                    //         borderRadius: BorderRadius.circular(30),
+                    //         boxShadow: [
+                    //           BoxShadow(
+                    //             color: Colors.black.withOpacity(0.3),
+                    //             blurRadius: 10,
+                    //             offset: const Offset(0, 4),
+                    //           ),
+                    //         ],
+                    //       ),
+                    //       child: const Row(
+                    //         mainAxisSize: MainAxisSize.min,
+                    //         children: [
+                    //           Icon(
+                    //             Icons.camera_alt,
+                    //             color: Color(0xFF29ABFF),
+                    //             size: 22,
+                    //           ),
+                    //           SizedBox(width: 8),
+                    //           Text(
+                    //             'Analisis',
+                    //             style: TextStyle(
+                    //               color: Color(0xFF29ABFF),
+                    //               fontWeight: FontWeight.bold,
+                    //               fontSize: 14,
+                    //             ),
+                    //           ),
+                    //         ],
+                    //       ),
+                    //     ),
+                    //   ),
+                    // ),
                   ],
                 ),
               ),
             ),
-          ),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _handleAnalysisRequest(context, mqtt),
-        backgroundColor: const Color(0xFF1976D2),
-        elevation: 4,
-        icon: const Icon(Icons.camera_alt, color: Colors.white),
-        label: const Text(
-          'Analisis',
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-          ),
+
+            const SizedBox(height: 20),
+          ],
         ),
       ),
     );
   }
 
-  // 🆕 Loading Indicator dengan info sumber
-  Widget _buildLoadingIndicator(SettingsService settings) {
-    return Center(
+  String _getWaterCondition(MqttService mqtt) {
+    // Determine water condition based on sensor readings
+    final ph = mqtt.ph;
+    final tds = mqtt.tds;
+
+    if (ph >= 5.5 && ph <= 7.0 && tds >= 500 && tds <= 1500) {
+      return 'Optimal';
+    } else if (ph < 5.0 || ph > 7.5 || tds < 300 || tds > 2000) {
+      return 'Perlu Dicek';
+    } else {
+      return 'Baik';
+    }
+  }
+
+  Widget _buildStatusCard({
+    required IconData icon,
+    required String label,
+    required String value,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, color: color, size: 20),
+              ),
+              const Spacer(),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              color: Colors.grey[600],
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLoadingIndicator() {
+    return const Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const CircularProgressIndicator(
+          CircularProgressIndicator(
             color: Colors.white,
             strokeWidth: 3,
           ),
-          const SizedBox(height: 16),
-          const Text(
+          SizedBox(height: 16),
+          Text(
             'Menghubungkan...',
             style: TextStyle(
               color: Colors.white70,
               fontSize: 14,
             ),
           ),
-          const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  settings.useEsp32CamForStream ? Icons.videocam : Icons.laptop,
-                  size: 12,
-                  color: Colors.white70,
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  settings.useEsp32CamForStream ? 'ESP32-CAM' : 'Flask Webcam',
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 11,
-                  ),
-                ),
-              ],
-            ),
-          ),
         ],
       ),
     );
   }
 
-  // 🆕 Offline Placeholder dengan info sumber
   Widget _buildOfflinePlaceholder(SettingsService settings) {
-    final streamUrl = settings.streamUrl;
-    final isEsp32Cam = settings.useEsp32CamForStream;
-
     return Container(
       color: Colors.black,
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(
-            isEsp32Cam ? Icons.videocam_off : Icons.laptop_chromebook,
+            settings.useEsp32CamForStream ? Icons.videocam_off : Icons.laptop,
             color: Colors.grey,
             size: 48,
           ),
@@ -380,152 +398,48 @@ class _MonitoringScreenState extends State<MonitoringScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            isEsp32Cam
-                ? 'Pastikan ESP32-CAM aktif\ndan terhubung ke WiFi yang sama.'
-                : 'Pastikan Flask server berjalan\ndan IP sudah benar.',
+            settings.useEsp32CamForStream
+                ? 'Pastikan ESP32-CAM aktif'
+                : 'Pastikan Flask server berjalan',
             textAlign: TextAlign.center,
             style: TextStyle(
               color: Colors.grey[400],
               fontSize: 12,
             ),
           ),
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            margin: const EdgeInsets.symmetric(horizontal: 40),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.05),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.grey.shade700),
-            ),
-            child: Column(
-              children: [
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      isEsp32Cam ? Icons.videocam : Icons.laptop,
-                      size: 14,
-                      color: Colors.grey[500],
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      isEsp32Cam ? 'ESP32-CAM' : 'Flask Webcam',
-                      style: TextStyle(
-                        color: Colors.grey[400],
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  streamUrl,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Colors.grey[500],
-                    fontSize: 10,
-                    fontFamily: 'monospace',
-                  ),
-                ),
-              ],
-            ),
-          ),
           const SizedBox(height: 16),
           ElevatedButton.icon(
             onPressed: () {
-              debugPrint('🟡 [MONITORING SCREEN] Retry stream connection...');
-              setState(() {
-                _isStreamRunning = false;
-              });
+              setState(() => _isStreamRunning = false);
               Future.delayed(const Duration(milliseconds: 300), () {
-                if (mounted) {
-                  setState(() {
-                    _isStreamRunning = true;
-                  });
-                }
+                if (mounted) setState(() => _isStreamRunning = true);
               });
             },
             icon: const Icon(Icons.refresh, size: 18),
             label: const Text('Coba Lagi'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF1976D2),
+              backgroundColor: const Color(0xFF29ABFF),
               foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(
-                horizontal: 20,
-                vertical: 10,
-              ),
             ),
-          )
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildStatCard({
-    required IconData icon,
-    required String label,
-    required String value,
-    required Color color,
-  }) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: color.withOpacity(0.3),
-            width: 1.5,
-          ),
-        ),
-        child: Column(
-          children: [
-            Icon(icon, color: color, size: 24),
-            const SizedBox(height: 6),
-            Text(
-              value,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                color: color,
-              ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 11,
-                color: Colors.grey[600],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _handleAnalysisRequest(BuildContext context, MqttService mqtt) {
+  void _handleCapture(BuildContext context, MqttService mqtt) {
     if (mqtt.isConnected) {
-      debugPrint('🟢 [MONITORING SCREEN] Sending capture command via MQTT');
       mqtt.publishCaptureCommand();
-
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Row(
             children: [
-              Icon(Icons.send, color: Colors.white, size: 18),
+              Icon(Icons.camera_alt, color: Colors.white, size: 18),
               SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  'Mengirim perintah analisis...',
-                  style: TextStyle(fontSize: 13),
-                ),
-              ),
+              Text('Mengirim perintah analisis...'),
             ],
           ),
-          backgroundColor: const Color(0xFF1976D2),
+          backgroundColor: const Color(0xFF29ABFF),
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(10),
@@ -534,7 +448,6 @@ class _MonitoringScreenState extends State<MonitoringScreen> {
         ),
       );
     } else {
-      debugPrint('🔴 [MONITORING SCREEN] MQTT not connected');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Row(
