@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 import '../../services/mqtt_service.dart';
-import '../../widgets/home/connection_status_indicator.dart';
 
 class ControllerScreen extends StatefulWidget {
   const ControllerScreen({super.key});
@@ -11,307 +11,447 @@ class ControllerScreen extends StatefulWidget {
 }
 
 class _ControllerScreenState extends State<ControllerScreen> {
-  final int _selectedIndex = 2; // Controller tab
+  static const Color _primaryBlue = Color(0xFF29ABFF);
+  static const Color _darkBlue = Color(0xFF1976D2);
 
   @override
   Widget build(BuildContext context) {
-    final mqtt = Provider.of<MqttService>(context);
-
     return Scaffold(
-      backgroundColor: Colors.grey[100],
-      body: SafeArea(
-        child: Column(
-          children: [
-            _buildHeader(mqtt),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(16), // ✅ Reduced padding
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Water & pH Control Section
-                    const Text(
-                      'Water & pH Control',
-                      style: TextStyle(
-                        fontSize: 16, // ✅ Reduced font size
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-
-                    // Control Buttons Grid
-                    GridView.count(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      crossAxisCount: 2,
-                      mainAxisSpacing: 10, // ✅ Reduced spacing
-                      crossAxisSpacing: 10,
-                      childAspectRatio: 1.1, // ✅ Adjusted ratio
-                      children: [
-                        _buildControlCard(
-                          icon: Icons.water_drop,
-                          label: 'Watering',
-                          isActive: mqtt.isPumpOn,
-                          onTap: () => mqtt.setPump(!mqtt.isPumpOn),
-                          color: Colors.blue,
-                        ),
-                        _buildControlCard(
-                          icon: Icons.lightbulb,
-                          label: 'Grow Light',
-                          isActive: mqtt.isGrowLightOn,
-                          onTap: () => mqtt.setGrowLight(!mqtt.isGrowLightOn),
-                          color: Colors.amber,
-                        ),
-                        _buildControlCard(
-                          icon: Icons.arrow_upward,
-                          label: 'pH Up',
-                          isActive: mqtt.isPhUpPumpOn,
-                          onTap: () => mqtt.setPhUpPump(!mqtt.isPhUpPumpOn),
-                          color: Colors.purple,
-                        ),
-                        _buildControlCard(
-                          icon: Icons.arrow_downward,
-                          label: 'pH Down',
-                          isActive: mqtt.isPhDownPumpOn,
-                          onTap: () => mqtt.setPhDownPump(!mqtt.isPhDownPumpOn),
-                          color: Colors.orange,
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 24),
-
-                    // Nutrients Section
-                    const Text(
-                      'Nutrient Control',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-
-                    // Nutrient Buttons Grid
-                    GridView.count(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      crossAxisCount: 2,
-                      mainAxisSpacing: 10,
-                      crossAxisSpacing: 10,
-                      childAspectRatio: 1.1,
-                      children: [
-                        _buildControlCard(
-                          icon: Icons.science,
-                          label: 'Nutrient A',
-                          isActive: mqtt.isNutrientAPumpOn,
-                          onTap: () =>
-                              mqtt.setNutrientAPump(!mqtt.isNutrientAPumpOn),
-                          color: const Color(0xFF4CAF50),
-                        ),
-                        _buildControlCard(
-                          icon: Icons.science,
-                          label: 'Nutrient B',
-                          isActive: mqtt.isNutrientBPumpOn,
-                          onTap: () =>
-                              mqtt.setNutrientBPump(!mqtt.isNutrientBPumpOn),
-                          color: const Color(0xFF009688),
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 20),
-
-                    // Info Card (UPDATED - Blue theme)
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF1976D2)
-                            .withOpacity(0.1), // ✅ Blue background
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: const Color(0xFF1976D2)
-                              .withOpacity(0.3), // ✅ Blue border
-                          width: 1,
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.info_outline,
-                            color: const Color(0xFF1976D2), // ✅ Blue icon
-                            size: 20,
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              'Tap cards to toggle actuators. Blue border indicates active state.',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color:
-                                    const Color(0xFF0D47A1), // ✅ Dark blue text
-                                height: 1.3,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    const SizedBox(height: 16),
-                  ],
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [_primaryBlue, _darkBlue],
+          ),
+        ),
+        child: SafeArea(
+          child: Column(
+            children: [
+              _buildHeader(),
+              Expanded(
+                child: SingleChildScrollView(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                  child: Column(
+                    children: [
+                      const SizedBox(height: 20),
+                      _buildSectionTitle('CONTROLLING'),
+                      const SizedBox(height: 24),
+                      _buildMainControls(),
+                      const SizedBox(height: 32),
+                      _buildSectionTitle('NUTRIENTS'),
+                      const SizedBox(height: 24),
+                      _buildNutrientControls(),
+                      const SizedBox(height: 40),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          ],
+              _buildBottomNav(),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  // ============================================
-  // Header (UPDATED - Blue theme)
-  // ============================================
-  Widget _buildHeader(MqttService mqtt) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Row(
+  Widget _buildHeader() {
+    return Consumer<MqttService>(
+      builder: (context, mqtt, _) {
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+          child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              GestureDetector(
+                onTap: () => Navigator.pop(context),
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.arrow_back_ios_new,
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                ),
+              ),
+              Row(
                 children: [
-                  Text(
-                    'Controller',
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF1976D2), // ✅ Blue
+                  Container(
+                    width: 10,
+                    height: 10,
+                    decoration: BoxDecoration(
+                      color: mqtt.isConnected ? Colors.greenAccent : Colors.red,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: mqtt.isConnected
+                              ? Colors.greenAccent.withOpacity(0.5)
+                              : Colors.red.withOpacity(0.5),
+                          blurRadius: 8,
+                          spreadRadius: 2,
+                        ),
+                      ],
                     ),
                   ),
-                  SizedBox(height: 2),
+                  const SizedBox(width: 8),
                   Text(
-                    'Device Control Panel',
+                    mqtt.isConnected ? 'Connected' : 'Disconnected',
                     style: TextStyle(
-                      fontSize: 11,
-                      color: Colors.grey,
+                      color: Colors.white.withOpacity(0.9),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                 ],
               ),
-              IconButton(
-                icon: const Icon(Icons.refresh),
-                onPressed: () => mqtt.connect(),
-                color: const Color(0xFF1976D2), // ✅ Blue
-                iconSize: 24,
+              GestureDetector(
+                onTap: () => mqtt.connect(),
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.refresh,
+                    color: Colors.white,
+                    size: 22,
+                  ),
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 10),
-          const ConnectionStatusIndicator(),
+        );
+      },
+    );
+  }
+
+  Widget _buildSectionTitle(String title) {
+    return Text(
+      title,
+      style: const TextStyle(
+        fontSize: 24,
+        fontWeight: FontWeight.bold,
+        color: Colors.white,
+        letterSpacing: 2,
+        shadows: [
+          Shadow(
+            color: Colors.black26,
+            offset: Offset(0, 2),
+            blurRadius: 4,
+          ),
         ],
       ),
     );
   }
 
-  // ============================================
-  // Control Card Widget (UPDATED - Blue active state)
-  // ============================================
-  Widget _buildControlCard({
-    required IconData icon,
+  Widget _buildMainControls() {
+    return Consumer<MqttService>(
+      builder: (context, mqtt, _) {
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            _buildControlButton(
+              svgPath: 'assets/images/icon_water.svg',
+              label: 'WATERING',
+              isActive: mqtt.isPumpOn,
+              onTap: () => mqtt.setPump(!mqtt.isPumpOn),
+              activeColor: const Color(0xFF29ABFF),
+            ),
+            _buildControlButton(
+              svgPath: 'assets/images/icon_ph.svg',
+              label: 'UP',
+              isActive: mqtt.isPhUpPumpOn,
+              onTap: () => mqtt.setPhUpPump(!mqtt.isPhUpPumpOn),
+              activeColor: const Color(0xFF4CAF50),
+              showUpArrow: true,
+            ),
+            _buildControlButton(
+              svgPath: 'assets/images/icon_ph.svg',
+              label: 'DOWN',
+              isActive: mqtt.isPhDownPumpOn,
+              onTap: () => mqtt.setPhDownPump(!mqtt.isPhDownPumpOn),
+              activeColor: const Color(0xFFFF5722),
+              showDownArrow: true,
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildNutrientControls() {
+    return Consumer<MqttService>(
+      builder: (context, mqtt, _) {
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            _buildNutrientButton(
+              label: 'A',
+              isActive: mqtt.isNutrientAPumpOn,
+              onTap: () => mqtt.setNutrientAPump(!mqtt.isNutrientAPumpOn),
+            ),
+            const SizedBox(width: 40),
+            _buildNutrientButton(
+              label: 'B',
+              isActive: mqtt.isNutrientBPumpOn,
+              onTap: () => mqtt.setNutrientBPump(!mqtt.isNutrientBPumpOn),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildControlButton({
+    required String svgPath,
     required String label,
     required bool isActive,
     required VoidCallback onTap,
-    required Color color,
+    required Color activeColor,
+    bool showUpArrow = false,
+    bool showDownArrow = false,
   }) {
     return GestureDetector(
       onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isActive
-                ? const Color(0xFF1976D2)
-                : Colors.transparent, // ✅ Blue
-            width: 2.5,
+      child: Column(
+        children: [
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            width: 80,
+            height: 80,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: isActive ? activeColor : Colors.white,
+                width: 3,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: isActive
+                      ? activeColor.withOpacity(0.4)
+                      : Colors.black.withOpacity(0.1),
+                  blurRadius: isActive ? 16 : 8,
+                  spreadRadius: isActive ? 2 : 0,
+                ),
+              ],
+            ),
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                SvgPicture.asset(
+                  svgPath,
+                  width: 36,
+                  height: 36,
+                  colorFilter: ColorFilter.mode(
+                    isActive ? activeColor : _darkBlue,
+                    BlendMode.srcIn,
+                  ),
+                ),
+                if (showUpArrow)
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: Icon(
+                      Icons.arrow_drop_up,
+                      size: 18,
+                      color: isActive ? activeColor : _darkBlue,
+                    ),
+                  ),
+                if (showDownArrow)
+                  Positioned(
+                    bottom: 8,
+                    right: 8,
+                    child: Icon(
+                      Icons.arrow_drop_down,
+                      size: 18,
+                      color: isActive ? activeColor : _darkBlue,
+                    ),
+                  ),
+              ],
+            ),
           ),
-          boxShadow: [
-            BoxShadow(
-              color: isActive
-                  ? const Color(0xFF1976D2).withOpacity(0.2) // ✅ Blue shadow
-                  : Colors.black.withOpacity(0.05),
-              blurRadius: isActive ? 10 : 6,
-              offset: const Offset(0, 2),
+          const SizedBox(height: 12),
+          Text(
+            label,
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 1,
+              shadows: [
+                Shadow(
+                  color: Colors.black.withOpacity(0.2),
+                  offset: const Offset(0, 1),
+                  blurRadius: 2,
+                ),
+              ],
             ),
-          ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNutrientButton({
+    required String label,
+    required bool isActive,
+    required VoidCallback onTap,
+  }) {
+    const Color nutrientColor = Color(0xFFFCEE21);
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        children: [
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            width: 80,
+            height: 80,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: isActive ? nutrientColor : Colors.white,
+                width: 3,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: isActive
+                      ? nutrientColor.withOpacity(0.4)
+                      : Colors.black.withOpacity(0.1),
+                  blurRadius: isActive ? 16 : 8,
+                  spreadRadius: isActive ? 2 : 0,
+                ),
+              ],
+            ),
+            child: Center(
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  SvgPicture.asset(
+                    'assets/images/icon_nutrients.svg',
+                    width: 36,
+                    height: 36,
+                    colorFilter: ColorFilter.mode(
+                      isActive ? nutrientColor : _darkBlue,
+                      BlendMode.srcIn,
+                    ),
+                  ),
+                  Positioned(
+                    bottom: 18,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: isActive ? nutrientColor : _primaryBlue,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        label,
+                        style: TextStyle(
+                          color: isActive ? Colors.black87 : Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'NUTRIENT $label',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.5,
+              shadows: [
+                Shadow(
+                  color: Colors.black.withOpacity(0.2),
+                  offset: const Offset(0, 1),
+                  blurRadius: 2,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBottomNav() {
+    return Container(
+      height: 80,
+      decoration: BoxDecoration(
+        color: _primaryBlue,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 16,
+            offset: const Offset(0, -4),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          _buildNavItem(
+            iconPath: 'assets/images/icon_camera.svg',
+            isActive: false,
+            onTap: () => Navigator.pushReplacementNamed(context, '/camera'),
+          ),
+          _buildNavItem(
+            iconPath: 'assets/images/icon_home.svg',
+            isActive: false,
+            onTap: () => Navigator.pushReplacementNamed(context, '/home'),
+          ),
+          _buildNavItem(
+            iconPath: 'assets/images/icon_controlling.svg',
+            isActive: true,
+            onTap: () {},
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNavItem({
+    required String iconPath,
+    required bool isActive,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 56,
+        height: 56,
+        decoration: BoxDecoration(
+          color: isActive ? Colors.white : Colors.transparent,
+          borderRadius: BorderRadius.circular(16),
         ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            // Icon with background
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: isActive
-                    ? const Color(0xFF1976D2)
-                        .withOpacity(0.1) // ✅ Blue background
-                    : color.withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                icon,
-                size: 28,
-                color:
-                    isActive ? const Color(0xFF1976D2) : color, // ✅ Blue icon
-              ),
+        child: Center(
+          child: SvgPicture.asset(
+            iconPath,
+            width: 28,
+            height: 28,
+            colorFilter: ColorFilter.mode(
+              isActive ? _darkBlue : Colors.white.withOpacity(0.7),
+              BlendMode.srcIn,
             ),
-            const SizedBox(height: 8),
-
-            // Label
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: isActive
-                    ? const Color(0xFF1976D2)
-                    : Colors.black87, // ✅ Blue text
-              ),
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 3),
-
-            // Status
-            Text(
-              isActive ? 'ON' : 'OFF',
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
-                color: isActive
-                    ? const Color(0xFF1976D2)
-                    : Colors.grey, // ✅ Blue status
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );

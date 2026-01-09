@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:tumbuhkan/services/mascot_service.dart'; // 🆕 IMPORT INI
+import 'package:tumbuhkan/services/mascot_service.dart';
 import 'config/routes.dart';
 import 'config/theme.dart';
 import 'services/mqtt_service.dart';
@@ -34,8 +34,7 @@ void main() async {
         ChangeNotifierProvider(create: (_) => MqttService()),
         ChangeNotifierProvider(create: (_) => GeminiService()),
         ChangeNotifierProvider(create: (_) => FirebaseAuthService()),
-        ChangeNotifierProvider(
-            create: (_) => MascotService()), 
+        ChangeNotifierProvider(create: (_) => MascotService()),
       ],
       child: const TumbuhkanApp(),
     ),
@@ -54,7 +53,7 @@ class TumbuhkanApp extends StatelessWidget {
       initialRoute: AppRoutes.splash,
       routes: AppRoutes.routes,
       onGenerateRoute: AppRoutes.onGenerateRoute,
-      // home: const TestTumuScreen(), // ⏸️ Comment untuk production
+      // home: const TestTumuScreen(),
     );
   }
 }

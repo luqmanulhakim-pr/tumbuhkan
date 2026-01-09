@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:tumbuhkan/models/mascot_state.dart';
 import 'package:tumbuhkan/widgets/home/tumu_mascot.dart';
-import 'package:tumbuhkan/widgets/home/sensor_bar.dart';
 import 'package:tumbuhkan/screens/home/sensor_grid.dart';
 
 class TestTumuScreen extends StatefulWidget {

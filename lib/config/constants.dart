@@ -2,6 +2,7 @@ class AppConstants {
   // ============================================
   // MQTT Configuration
   // ============================================
+  // static const String mqttBrokerUrl = 'broker.mqtt.cool';
   static const String mqttBrokerUrl = 'broker.hivemq.com';
   static const int mqttPort = 1883;
   static const String mqttClientId = 'tumbuhkan_flutter_client';
@@ -12,43 +13,40 @@ class AppConstants {
   static const Duration heartbeatTimeout = Duration(minutes: 2);
 
   // ============================================
-  // ✅ MQTT Topics - Sensor Data (Single JSON Topic)
+  // MQTT Topics - Sensor Data
   // ============================================
   static const String topicSensorData = 'tumbuhkan/sensor/data';
 
   // ============================================
-  // ✅ MQTT Topics - Camera
+  // MQTT Topics - Relay Control (ESP32 Format)
+  // ============================================
+  static const String topicRelayControl = 'tumbuhkan/relay/control';
+  static const String topicRelayStatus = 'tumbuhkan/relay/status';
+
+  // ============================================
+  // MQTT Topics - Calibration
+  // ============================================
+  static const String topicPhCalibration = 'tumbuhkan/ph/calibration';
+  static const String topicTdsCalibration = 'tumbuhkan/tds/calibration';
+
+  // ============================================
+  // MQTT Topics - Camera
   // ============================================
   static const String topicCameraCapture = 'tumbuhkan/camera/capture';
   static const String topicCameraStatus = 'tumbuhkan/camera/status';
 
   // ============================================
-  // MQTT Topics - Actuator Control
+  // Relay/Actuator Names (matches ESP32)
   // ============================================
-  static const String topicPumpControl = 'tumbuhkan/actuator/pump/control';
-  static const String topicGrowLightControl =
-      'tumbuhkan/actuator/growlight/control';
-  static const String topicPhUpPumpControl = 'tumbuhkan/actuator/ph_up/control';
-  static const String topicPhDownPumpControl =
-      'tumbuhkan/actuator/ph_down/control';
-  static const String topicNutrientAPumpControl =
-      'tumbuhkan/actuator/nutrient_a/control';
-  static const String topicNutrientBPumpControl =
-      'tumbuhkan/actuator/nutrient_b/control';
+  static const String relayPump = 'PUMP';
+  static const String relayPhUp = 'PH_UP';
+  static const String relayPhDown = 'PH_DOWN';
+  static const String relayAbMix = 'AB_MIX';
+  static const String relayLed = 'LED';
+  static const String relayFan = 'FAN';
 
-  // ============================================
-  // MQTT Topics - Actuator Status
-  // ============================================
-  static const String topicPumpStatus = 'tumbuhkan/actuator/pump/status';
-  static const String topicGrowLightStatus =
-      'tumbuhkan/actuator/growlight/status';
-  static const String topicPhUpPumpStatus = 'tumbuhkan/actuator/ph_up/status';
-  static const String topicPhDownPumpStatus =
-      'tumbuhkan/actuator/ph_down/status';
-  static const String topicNutrientAPumpStatus =
-      'tumbuhkan/actuator/nutrient_a/status';
-  static const String topicNutrientBPumpStatus =
-      'tumbuhkan/actuator/nutrient_b/status';
+  // Default relay duration (ms)
+  static const int defaultRelayDuration = 5000;
 
   // ============================================
   // NEW: Flask Camera API
@@ -97,6 +95,13 @@ class AppConstants {
   static const String plantLeafCount = '12 Helai';
   static const String plantHealthScore = '98%';
   static const String harvestPrediction = '12 Hari lagi';
+
+  // ============================================
+  // Sensor Log API
+  // ============================================
+  static const String sensorLogApiBaseUrl = 'http://192.168.1.100:5000';
+  static const String sensorHistoryEndpoint =
+      '$sensorLogApiBaseUrl/api/v1/sensors/history';
 
   //Chatbot
   static const String geminiApiKey = 'AIzaSyBqWUMVZMZEa1D4HM1TwjWwqMaC-s_QveU';

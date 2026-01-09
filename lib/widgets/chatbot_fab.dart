@@ -11,8 +11,8 @@ class ChatBotFAB extends StatelessWidget {
         Navigator.of(context).pushNamed(AppRoutes.chatbot);
         debugPrint('api : ${String.fromEnvironment('API_KEY_GEMINI')}');
       },
-      backgroundColor: const Color(0xFF2E7D32),
-      elevation: 4,
+      backgroundColor: const Color(0xFF29ABFF),
+      elevation: 6,
       icon: const Icon(Icons.smart_toy, size: 24),
       label: const Text(
         'Tanya Tumu',

@@ -7,12 +7,11 @@ enum MascotState {
   lowTemperature,
   unstablePh,
   lowNutrient,
-  lowLevelWater, // 🆕 NEW
-  highLevelWater, // 🆕 NEW
-  noSignal, // 🆕 NEW
+  lowLevelWater,
+  highLevelWater,
+  noSignal,
 }
 
-/// ✅ Extension untuk mendapatkan properties dari MascotState
 extension MascotStateExtension on MascotState {
   /// Rive input name (sesuai dengan State Machine di Rive)
   String get riveInputName {
@@ -36,29 +35,27 @@ extension MascotStateExtension on MascotState {
     }
   }
 
-  /// ✅ Chat bubble message
   String get message {
     switch (this) {
       case MascotState.normal:
-        return 'Yeay, kondisi optimal! 😊\nTanamanmu sehat!';
+        return 'Yeay, kondisi optimal! Tanaman tumbuh subur!';
       case MascotState.highTemperature:
-        return 'Waduh, kepanasan nih! 🔥😎\nAyo turunin suhunya!';
+        return 'Waduh, kepanasan nih! Ayo turunin suhunya!';
       case MascotState.lowTemperature:
-        return 'Brrrr... kedinginan! 🥶❄️\nNaikin suhu dong!';
+        return 'Brrrr... kedinginan! Perlu penghangat nih!';
       case MascotState.unstablePh:
-        return 'pH-ku gak stabil nih! 😵💫\nCek larutan nutrisi ya!';
+        return 'pH-ku gak stabil nih! Perlu penyesuaian!';
       case MascotState.lowNutrient:
-        return 'Nutrisi kurang nih! 😟💛\nTambah nutrisi dong!';
+        return 'Nutrisi kurang nih! Tambahin dong!';
       case MascotState.lowLevelWater:
-        return 'Air hampir habis! 💧😰\nSegera isi ulang ya!';
+        return 'Haus nih! Airnya kurang! Tolong isi ya!';
       case MascotState.highLevelWater:
-        return 'Wah, airnya penuh! 💧😊\nSiap untuk tumbuh!';
+        return 'Wah, airnya penuh! Siap untuk tumbuh!';
       case MascotState.noSignal:
-        return 'Aduh, gak ada sinyal! 📡❌\nCek koneksi sensor!';
+        return 'Aduh, gak ada sinyal! Cek koneksi ya!';
     }
   }
 
-  /// ✅ Chat bubble background color
   Color get color {
     switch (this) {
       case MascotState.normal:
@@ -80,7 +77,6 @@ extension MascotStateExtension on MascotState {
     }
   }
 
-  /// ✅ Emoji representation
   String get emoji {
     switch (this) {
       case MascotState.normal:
@@ -102,25 +98,69 @@ extension MascotStateExtension on MascotState {
     }
   }
 
-  /// ✅ State name (for debugging)
   String get displayName {
     switch (this) {
       case MascotState.normal:
         return 'Normal';
       case MascotState.highTemperature:
-        return 'High Temperature';
+        return 'Suhu Tinggi';
       case MascotState.lowTemperature:
-        return 'Low Temperature';
+        return 'Suhu Rendah';
       case MascotState.unstablePh:
-        return 'Unstable pH';
+        return 'pH Tidak Stabil';
       case MascotState.lowNutrient:
-        return 'Low Nutrient';
+        return 'Nutrisi Rendah';
       case MascotState.lowLevelWater:
-        return 'Low Water Level';
+        return 'Air Rendah';
       case MascotState.highLevelWater:
-        return 'High Water Level';
+        return 'Air Penuh';
       case MascotState.noSignal:
-        return 'No Signal';
+        return 'Tidak Terhubung';
+    }
+  }
+
+  /// Apakah state ini memiliki aksi yang bisa di-trigger
+  bool get hasAction {
+    switch (this) {
+      case MascotState.unstablePh:
+      case MascotState.lowNutrient:
+      case MascotState.lowLevelWater:
+      case MascotState.highTemperature:
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  /// Label untuk action button
+  String get actionLabel {
+    switch (this) {
+      case MascotState.unstablePh:
+        return 'Sesuaikan pH';
+      case MascotState.lowNutrient:
+        return 'Tambah Nutrisi';
+      case MascotState.lowLevelWater:
+        return 'Isi Air';
+      case MascotState.highTemperature:
+        return 'Nyalakan Kipas';
+      default:
+        return '';
+    }
+  }
+
+  /// Icon untuk action button
+  IconData get actionIcon {
+    switch (this) {
+      case MascotState.unstablePh:
+        return Icons.science;
+      case MascotState.lowNutrient:
+        return Icons.water_drop;
+      case MascotState.lowLevelWater:
+        return Icons.water;
+      case MascotState.highTemperature:
+        return Icons.air;
+      default:
+        return Icons.touch_app;
     }
   }
 }

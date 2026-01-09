@@ -1,11 +1,21 @@
 import cv2
 from flask import Flask, Response, request, jsonify
-from flask_cors import CORS  # 🆕 Import CORS
+from flask_cors import CORS, cross_origin  # 🆕 Import cross_origin
 import os
 from datetime import datetime
 
 app = Flask(__name__)
-CORS(app)  # 🆕 Enable CORS
+
+# ✅ FIX: CORS configuration yang lebih permissive
+CORS(app, resources={
+    r"/*": {
+        "origins": "*",
+        "methods": ["GET", "POST", "OPTIONS"],
+        "allow_headers": ["Content-Type"],
+        "expose_headers": ["Content-Type"],
+        "supports_credentials": False
+    }
+})
 
 # Folder untuk menyimpan foto
 UPLOAD_FOLDER = 'uploads'        # Foto dari Flutter (deteksi penyakit)
@@ -36,10 +46,24 @@ def generate_frames():
                b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
 
 @app.route('/stream')
+@cross_origin()  # ✅ TAMBAHKAN INI
 def video_feed():
     """Route untuk streaming video (laptop webcam)"""
     print("🟢 [FLASK] /stream endpoint hit")
-    return Response(generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
+    
+    # ✅ FIX: Tambahkan custom headers
+    response = Response(
+        generate_frames(),
+        mimetype='multipart/x-mixed-replace; boundary=frame'
+    )
+    
+    # ✅ CRITICAL: Tambahkan headers untuk mencegah buffering
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    
+    return response
 
 @app.route('/upload', methods=['POST'])
 def upload_image():

@@ -186,21 +186,18 @@ class MqttService extends ChangeNotifier {
     });
   }
 
-  // ============================================
-  // Subscribe Topics (tidak berubah)
+  // Subscribe Topics (ESP32 Format)
   // ============================================
   void _subscribeToTopics() {
     debugPrint('📡 Berlangganan ke topic MQTT...');
 
+    // Sensor data topic
     client.subscribe(AppConstants.topicSensorData, MqttQos.atMostOnce);
     debugPrint('  ✓ Subscribed: ${AppConstants.topicSensorData}');
 
-    client.subscribe(AppConstants.topicPumpStatus, MqttQos.atMostOnce);
-    client.subscribe(AppConstants.topicGrowLightStatus, MqttQos.atMostOnce);
-    client.subscribe(AppConstants.topicPhUpPumpStatus, MqttQos.atMostOnce);
-    client.subscribe(AppConstants.topicPhDownPumpStatus, MqttQos.atMostOnce);
-    client.subscribe(AppConstants.topicNutrientAPumpStatus, MqttQos.atMostOnce);
-    client.subscribe(AppConstants.topicNutrientBPumpStatus, MqttQos.atMostOnce);
+    // Relay status topic (single JSON topic from ESP32)
+    client.subscribe(AppConstants.topicRelayStatus, MqttQos.atMostOnce);
+    debugPrint('  ✓ Subscribed: ${AppConstants.topicRelayStatus}');
 
     debugPrint('✅ Berhasil subscribe ke semua topic');
   }
@@ -240,7 +237,7 @@ class MqttService extends ChangeNotifier {
   }
 
   // ============================================
-  // Handle Message (tidak berubah)
+  // Handle Message (ESP32 Format)
   // ============================================
   void _handleMessage(String topic, String value) {
     _lastMessageTime = DateTime.now();
@@ -251,25 +248,11 @@ class MqttService extends ChangeNotifier {
         return;
       }
 
-      switch (topic) {
-        case AppConstants.topicPumpStatus:
-          _isPumpOn = value == '1' || value.toLowerCase() == 'true';
-          break;
-        case AppConstants.topicGrowLightStatus:
-          _isGrowLightOn = value == '1' || value.toLowerCase() == 'true';
-          break;
-        case AppConstants.topicPhUpPumpStatus:
-          _isPhUpPumpOn = value == '1' || value.toLowerCase() == 'true';
-          break;
-        case AppConstants.topicPhDownPumpStatus:
-          _isPhDownPumpOn = value == '1' || value.toLowerCase() == 'true';
-          break;
-        case AppConstants.topicNutrientAPumpStatus:
-          _isNutrientAPumpOn = value == '1' || value.toLowerCase() == 'true';
-          break;
-        case AppConstants.topicNutrientBPumpStatus:
-          _isNutrientBPumpOn = value == '1' || value.toLowerCase() == 'true';
-          break;
+      // Handle relay status JSON from ESP32
+      // Format: {"LED":"ON","FAN":"OFF","PH_UP":"OFF","AB_MIX":"OFF","PH_DOWN":"OFF","PUMP":"OFF"}
+      if (topic == AppConstants.topicRelayStatus) {
+        _handleRelayStatus(value);
+        return;
       }
 
       notifyListeners();
@@ -279,71 +262,130 @@ class MqttService extends ChangeNotifier {
   }
 
   // ============================================
-  // ✅ FIXED: Parse JSON Sensor Data (NEW STRUCTURE)
+  // Handle Relay Status JSON from ESP32
+  // ============================================
+  void _handleRelayStatus(String jsonString) {
+    try {
+      final Map<String, dynamic> data = json.decode(jsonString);
+
+      _isGrowLightOn = data[AppConstants.relayLed] == 'ON';
+      _isPumpOn = data[AppConstants.relayPump] == 'ON';
+      _isPhUpPumpOn = data[AppConstants.relayPhUp] == 'ON';
+      _isPhDownPumpOn = data[AppConstants.relayPhDown] == 'ON';
+      _isNutrientAPumpOn = data[AppConstants.relayAbMix] == 'ON';
+      _isNutrientBPumpOn =
+          data[AppConstants.relayAbMix] == 'ON'; // Same as A for AB_MIX
+
+      debugPrint('═══════════════════════════════════════');
+      debugPrint('🔌 RELAY STATUS UPDATED');
+      debugPrint('═══════════════════════════════════════');
+      debugPrint('💡 LED       : ${_isGrowLightOn ? "ON" : "OFF"}');
+      debugPrint('💧 PUMP      : ${_isPumpOn ? "ON" : "OFF"}');
+      debugPrint('⬆️  PH_UP     : ${_isPhUpPumpOn ? "ON" : "OFF"}');
+      debugPrint('⬇️  PH_DOWN   : ${_isPhDownPumpOn ? "ON" : "OFF"}');
+      debugPrint('🧪 AB_MIX    : ${_isNutrientAPumpOn ? "ON" : "OFF"}');
+      debugPrint('═══════════════════════════════════════');
+
+      notifyListeners();
+    } catch (e) {
+      debugPrint('❌ Error parsing relay status: $e');
+    }
+  }
+
+  // ============================================
+  // Parse JSON Sensor Data (ESP32 Format)
   // ============================================
   void _handleSensorData(String jsonString) {
     try {
       final Map<String, dynamic> data = json.decode(jsonString);
 
-      // Parse all values
+      // Parse sensor values from ESP32 payload
+      // {"ph":-12.9307,"ph_voltage":3.334714,"tds":0.900027,"tds_voltage":0.00225,
+      //  "temp_air":26.75,"temp_udara":26.6,"humidity":76.4,"ldr":2864,"distance":-1,"flow":0}
+
       _ph = _parseDouble(data['ph']);
       _tds = _parseDouble(data['tds']);
-      _waterFlow = _parseDouble(data['water_flow']);
-      _airHumidity = _parseDouble(data['air_humidity']);
-      _airTemperature = _parseDouble(data['air_temperature']);
-      _ldrValue = _parseDouble(data['ldr_value']);
-      _waterTemperature = _parseDouble(data['water_temperature']);
-      _waterLevel = _parseDouble(data['water_level']);
+      _waterTemperature = _parseDouble(data['temp_air']); // temp_air = suhu air
+      _airTemperature =
+          _parseDouble(data['temp_udara']); // temp_udara = suhu udara
+      _airHumidity = _parseDouble(data['humidity']);
+      _ldrValue = _parseDouble(data['ldr']);
+      _waterLevel =
+          _parseDouble(data['distance']); // ultrasonic distance sensor
+      _waterFlow = _parseDouble(data['flow']);
 
-      // Parse labels
-      _phLabel = data['ph_label']?.toString() ?? 'Unknown';
-      _tdsLabel = data['tds_label']?.toString() ?? 'Unknown';
-      _ambientLabel = data['ambient_label']?.toString() ?? 'Unknown';
-      _lightLabel = data['light_label']?.toString() ?? 'Unknown';
-      _status = data['status']?.toString() ?? 'Unknown';
-      _timestamp = data['timestamp']?.toString() ?? '';
+      // Calculate labels based on values
+      _phLabel = _getPhLabel(_ph);
+      _tdsLabel = _getTdsLabel(_tds);
+      _lightLabel = _getLightLabel(_ldrValue);
+      _ambientLabel = _getAmbientLabel(_airTemperature, _airHumidity);
+      _status = 'Connected';
+      _timestamp = DateTime.now().toIso8601String();
 
-      // Debug log
       debugPrint('═══════════════════════════════════════');
-      debugPrint('📊 SENSOR DATA UPDATED');
+      debugPrint('📊 SENSOR DATA UPDATED (ESP32)');
       debugPrint('═══════════════════════════════════════');
-      debugPrint('💧 Water Level  : ${_waterLevel.toStringAsFixed(0)}%');
       debugPrint('🧪 pH           : ${_ph.toStringAsFixed(2)} ($_phLabel)');
-      debugPrint('💛 TDS          : ${_tds.toStringAsFixed(0)} ppm ($_tdsLabel)');
+      debugPrint(
+          '💛 TDS          : ${_tds.toStringAsFixed(2)} ppm ($_tdsLabel)');
       debugPrint('🌡️  Air Temp     : ${_airTemperature.toStringAsFixed(1)}°C');
       debugPrint('💦 Water Temp   : ${_waterTemperature.toStringAsFixed(1)}°C');
       debugPrint('💧 Humidity     : ${_airHumidity.toStringAsFixed(0)}%');
-      debugPrint('☀️  LDR          : ${_ldrValue.toStringAsFixed(0)} ($_lightLabel)');
-      debugPrint('🌊 Water Flow   : ${_waterFlow.toStringAsFixed(2)} L/min');
-      debugPrint('🎯 Ambient      : $_ambientLabel');
-      debugPrint('📊 Status       : $_status');
-      debugPrint('⏰ Timestamp    : $_timestamp');
+      debugPrint(
+          '☀️  LDR          : ${_ldrValue.toStringAsFixed(0)} ($_lightLabel)');
+      debugPrint('📏 Distance     : ${_waterLevel.toStringAsFixed(1)} cm');
+      debugPrint('� Water Flow   : ${_waterFlow.toStringAsFixed(2)} L/min');
       debugPrint('═══════════════════════════════════════');
 
+      // Notify listeners
       notifyListeners();
 
-      // ✅ AUTO-UPDATE MASCOT STATE
-      debugPrint('🌱 [MQTT] Mascot service status: ${_mascotService != null ? "LINKED ✅" : "NOT LINKED ❌"}');
-
+      // Update mascot state
       if (_mascotService != null) {
-        debugPrint('🌱 [MQTT] Updating mascot state...');
-        debugPrint('   Temp: $_airTemperature, pH: $_ph, TDS: $_tds, Water: $_waterLevel%');
-
-        _mascotService!.updateState(
-          temperature: _airTemperature,
-          phValue: _ph,
-          nutrientLevel: _tds,
-          waterLevel: _waterLevel,              // ✅ NOW PASSING
-          isConnected: _connectionState == MqttConnectionState.connected, // ✅ NOW PASSING
-        );
-      } else {
-        debugPrint('⚠️ [MQTT] MascotService not linked! Cannot update Tumu state.');
+        Future.microtask(() {
+          if (_mascotService != null) {
+            _mascotService!.updateState(
+              temperature: _airTemperature,
+              phValue: _ph,
+              nutrientLevel: _tds,
+              waterLevel: _waterLevel,
+              isConnected: _connectionState == AppMqttConnectionState.connected,
+            );
+          }
+        });
       }
-
     } catch (e) {
       debugPrint('❌ [MQTT] Error parsing sensor JSON: $e');
       debugPrint('📄 Raw payload: $jsonString');
     }
+  }
+
+  // Helper methods for labels
+  String _getPhLabel(double ph) {
+    if (ph < 0) return 'Invalid';
+    if (ph < 5.5) return 'Asam';
+    if (ph > 7.5) return 'Basa';
+    return 'Optimal';
+  }
+
+  String _getTdsLabel(double tds) {
+    if (tds < 500) return 'Rendah';
+    if (tds > 2000) return 'Tinggi';
+    return 'Optimal';
+  }
+
+  String _getLightLabel(double ldr) {
+    if (ldr < 500) return 'Gelap';
+    if (ldr < 2000) return 'Redup';
+    return 'Terang';
+  }
+
+  String _getAmbientLabel(double temp, double humidity) {
+    if (temp > 32) return 'Panas';
+    if (temp < 18) return 'Dingin';
+    if (humidity > 80) return 'Lembab';
+    if (humidity < 40) return 'Kering';
+    return 'Normal';
   }
 
   // ============================================
@@ -358,7 +400,7 @@ class MqttService extends ChangeNotifier {
   }
 
   // ============================================
-  // Publish Methods (tidak berubah)
+  // Publish Methods
   // ============================================
   void publish(String topic, String message) {
     if (!isConnected) {
@@ -372,18 +414,75 @@ class MqttService extends ChangeNotifier {
     debugPrint('📤 Published: $topic = $message');
   }
 
-  void setPump(bool status) =>
-      publish(AppConstants.topicPumpControl, status ? '1' : '0');
-  void setGrowLight(bool status) =>
-      publish(AppConstants.topicGrowLightControl, status ? '1' : '0');
-  void setPhUpPump(bool status) =>
-      publish(AppConstants.topicPhUpPumpControl, status ? '1' : '0');
-  void setPhDownPump(bool status) =>
-      publish(AppConstants.topicPhDownPumpControl, status ? '1' : '0');
-  void setNutrientAPump(bool status) =>
-      publish(AppConstants.topicNutrientAPumpControl, status ? '1' : '0');
-  void setNutrientBPump(bool status) =>
-      publish(AppConstants.topicNutrientBPumpControl, status ? '1' : '0');
+  // ============================================
+  // Actuator Control Methods (ESP32 JSON Format)
+  // ============================================
+
+  /// Publish relay control command to ESP32
+  /// For LED/FAN: uses state "ON"/"OFF"
+  /// For PUMP/PH_UP/PH_DOWN/AB_MIX: uses duration in ms
+  void _publishRelayCommand(String relayName,
+      {int? durationMs, String? state}) {
+    final Map<String, dynamic> payload = {};
+
+    if (state != null) {
+      // LED/FAN use state
+      payload[relayName] = {'state': state};
+    } else if (durationMs != null) {
+      // Relay pumps use duration
+      payload[relayName] = {'duration': durationMs};
+    }
+
+    final jsonPayload = json.encode(payload);
+    publish(AppConstants.topicRelayControl, jsonPayload);
+    debugPrint('🔌 Relay command: $jsonPayload');
+  }
+
+  void setPump(bool status) {
+    if (status) {
+      _publishRelayCommand(AppConstants.relayPump,
+          durationMs: AppConstants.defaultRelayDuration);
+    }
+    // Note: ESP32 will auto-turn off after duration.
+    // If status == false, do nothing (let timer handle it)
+  }
+
+  void setGrowLight(bool status) {
+    _publishRelayCommand(AppConstants.relayLed, state: status ? 'ON' : 'OFF');
+  }
+
+  void setPhUpPump(bool status) {
+    if (status) {
+      _publishRelayCommand(AppConstants.relayPhUp,
+          durationMs: AppConstants.defaultRelayDuration);
+    }
+  }
+
+  void setPhDownPump(bool status) {
+    if (status) {
+      _publishRelayCommand(AppConstants.relayPhDown,
+          durationMs: AppConstants.defaultRelayDuration);
+    }
+  }
+
+  void setNutrientAPump(bool status) {
+    if (status) {
+      _publishRelayCommand(AppConstants.relayAbMix,
+          durationMs: AppConstants.defaultRelayDuration);
+    }
+  }
+
+  void setNutrientBPump(bool status) {
+    if (status) {
+      _publishRelayCommand(AppConstants.relayAbMix,
+          durationMs: AppConstants.defaultRelayDuration);
+    }
+  }
+
+  /// Custom relay control with specific duration
+  void setRelayWithDuration(String relayName, int durationMs) {
+    _publishRelayCommand(relayName, durationMs: durationMs);
+  }
 
   // ============================================
   // Camera Control Methods

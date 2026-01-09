@@ -12,63 +12,82 @@ class CloudChatBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bg = Colors.white.withOpacity(0.92);
+    final bg = Colors.white.withOpacity(0.95);
 
     return Stack(
       clipBehavior: Clip.none,
       children: [
         // Main bubble
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           decoration: BoxDecoration(
             color: bg,
-            borderRadius: BorderRadius.circular(22),
-            border: Border.all(color: accentColor.withOpacity(0.55), width: 2),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: accentColor.withOpacity(0.6),
+              width: 2.5,
+            ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.10),
-                blurRadius: 14,
-                offset: const Offset(0, 6),
+                color: Colors.black.withOpacity(0.12),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
               ),
             ],
           ),
           child: Text(
             message,
-            maxLines: 3,
+            maxLines: 4, // ✅ Allow more lines
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
               color: Color(0xFF16324F),
-              fontSize: 13,
+              fontSize: 12, // ✅ Smaller font for better fit
               fontWeight: FontWeight.w700,
-              height: 1.25,
+              height: 1.3,
+              letterSpacing: 0.2,
             ),
           ),
         ),
 
-        // Cloud bumps (top decorations)
+        // Cloud bumps - ✅ Adjusted positions
         Positioned(
-          top: -10,
-          left: 14,
-          child: _CloudBump(color: bg, borderColor: accentColor.withOpacity(0.55), size: 18),
+          top: -8,
+          left: 16,
+          child: _CloudBump(
+            color: bg,
+            borderColor: accentColor.withOpacity(0.6),
+            size: 16,
+          ),
         ),
         Positioned(
-          top: -16,
+          top: -12,
           left: 34,
-          child: _CloudBump(color: bg, borderColor: accentColor.withOpacity(0.55), size: 24),
+          child: _CloudBump(
+            color: bg,
+            borderColor: accentColor.withOpacity(0.6),
+            size: 20,
+          ),
         ),
         Positioned(
-          top: -10,
-          left: 62,
-          child: _CloudBump(color: bg, borderColor: accentColor.withOpacity(0.55), size: 18),
+          top: -8,
+          left: 56,
+          child: _CloudBump(
+            color: bg,
+            borderColor: accentColor.withOpacity(0.6),
+            size: 14,
+          ),
         ),
 
-        // Tail pointing left (toward sensor panel)
+        // Tail pointing left - ✅ Better position
         Positioned(
-          left: -10,
-          top: 18,
+          left: -8,
+          top: 20,
           child: CustomPaint(
-            size: const Size(16, 14),
-            painter: _TailPainter(fill: bg, stroke: accentColor.withOpacity(0.55)),
+            size: const Size(14, 12),
+            painter: _TailPainter(
+              fill: bg,
+              stroke: accentColor.withOpacity(0.6),
+            ),
           ),
         ),
       ],
@@ -95,7 +114,7 @@ class _CloudBump extends StatelessWidget {
       decoration: BoxDecoration(
         color: color,
         shape: BoxShape.circle,
-        border: Border.all(color: borderColor, width: 2),
+        border: Border.all(color: borderColor, width: 2.5),
       ),
     );
   }
@@ -109,8 +128,15 @@ class _TailPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final fillPaint = Paint()..color = fill..style = PaintingStyle.fill;
-    final strokePaint = Paint()..color = stroke..style = PaintingStyle.stroke..strokeWidth = 2;
+    final fillPaint = Paint()
+      ..color = fill
+      ..style = PaintingStyle.fill;
+    final strokePaint = Paint()
+      ..color = stroke
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.5
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
 
     final path = Path()
       ..moveTo(size.width, 0)
