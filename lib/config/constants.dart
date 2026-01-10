@@ -99,7 +99,7 @@ class AppConstants {
   // ============================================
   // Sensor Log API
   // ============================================
-  static const String sensorLogApiBaseUrl = 'http://192.168.1.100:5000';
+  static const String sensorLogApiBaseUrl = 'http://192.168.2.80:8000';
   static const String sensorHistoryEndpoint =
       '$sensorLogApiBaseUrl/api/v1/sensors/history';
 
