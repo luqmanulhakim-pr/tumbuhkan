@@ -494,17 +494,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         // ============================================
                         // FLASK SERVER SETTINGS
                         // ============================================
-                        _buildSectionTitle(Icons.dns, 'Flask Backend Server'),
+                        _buildSectionTitle(Icons.dns, 'FastAPI Backend Server'),
                         const SizedBox(height: 12),
                         _buildIpAddressField(
                           controller: _flaskIpController,
-                          label: 'Flask IP Address',
+                          label: 'FastAPI IP Address',
                           hint: '192.168.2.80',
                         ),
                         const SizedBox(height: 12),
                         _buildPortField(
                           controller: _flaskPortController,
-                          label: 'Flask Port',
+                          label: 'FastAPI Port',
                           hint: '5000',
                         ),
                         const SizedBox(height: 24),

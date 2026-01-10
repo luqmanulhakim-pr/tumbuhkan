@@ -10,11 +10,11 @@ const char* ssid = "hahh";
 const char* password = "1sampai8";
 
 // ============================================
-// Flask Server Configuration
+// fastAPI Server Configuration
 // ============================================
-const char* flaskServerIP = "192.168.137.223";  // 🔧 GANTI dengan IP laptop Anda
-const int flaskServerPort = 5000;
-String uploadEndpoint = "/uploadGrowth";
+const char* fastAPIServerIP = "192.168.2.80";  
+const int fastAPIServerPort = 8000;
+String uploadEndpoint = "/api/v1/prediction/growth/detect";
 
 // ============================================
 // Upload Interval
@@ -108,12 +108,13 @@ void loop() {
   // Auto-upload setiap 1 menit
   if (millis() - lastUploadTime >= UPLOAD_INTERVAL) {
     Serial.println("\n⏰ Auto-upload triggered");
-    uploadPhotoToFlask();
+    uploadPhotoTofastAPI();
     lastUploadTime = millis();
   }
 
   delay(10);
 }
+
 
 // ============================================
 // WiFi CONNECTION
@@ -229,7 +230,7 @@ void handleStream() {
     // ⚠️ CEK AUTO-UPLOAD saat streaming
     if (millis() - lastUploadTime >= UPLOAD_INTERVAL) {
       Serial.println("⏰ Upload during stream");
-      uploadPhotoToFlask();
+      uploadPhotoTofastAPI();
       lastUploadTime = millis();
     }
 
@@ -254,9 +255,9 @@ void handleStream() {
 }
 
 // ============================================
-// UPLOAD PHOTO TO FLASK
+// UPLOAD PHOTO TO fastAPI
 // ============================================
-void uploadPhotoToFlask() {
+void uploadPhotoTofastAPI() {
   if (!cameraInitialized || WiFi.status() != WL_CONNECTED) {
     Serial.println("❌ Cannot upload (camera/wifi not ready)");
     return;
@@ -281,9 +282,9 @@ void uploadPhotoToFlask() {
 
   Serial.printf("✅ Photo: %d bytes\n", fb->len);
 
-  // Upload to Flask
+  // Upload to fastAPI
   HTTPClient http;
-  String serverPath = "http://" + String(flaskServerIP) + ":" + String(flaskServerPort) + uploadEndpoint;
+  String serverPath = "http://" + String(fastAPIServerIP) + ":" + String(fastAPIServerPort) + uploadEndpoint;
 
   Serial.println("📤 Uploading to: " + serverPath);
 

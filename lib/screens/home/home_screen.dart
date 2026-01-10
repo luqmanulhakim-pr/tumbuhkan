@@ -17,6 +17,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   late AudioPlayer _audioPlayer;
+  late AudioPlayer _introPlayer;
   bool _isMusicPlaying = false;
 
   @override
@@ -52,15 +53,43 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _initAudioPlayer() {
     _audioPlayer = AudioPlayer();
+    _introPlayer = AudioPlayer();
+
+    // Setup background music player
     _audioPlayer.setReleaseMode(ReleaseMode.loop);
     _audioPlayer.setVolume(0.3); // 30% volume
-    _playBackgroundMusic();
+
+    // Setup intro player (play once)
+    _introPlayer.setReleaseMode(ReleaseMode.release);
+    _introPlayer.setVolume(0.5); // 50% volume for intro
+
+    // Play intro first, then background music
+    _playIntroThenBackground();
+  }
+
+  Future<void> _playIntroThenBackground() async {
+    try {
+      // Play intro audio
+      await _introPlayer.play(AssetSource('soundbg/TumuTime.mp3'));
+      setState(() => _isMusicPlaying = true);
+
+      // Listen for completion to start background music
+      _introPlayer.onPlayerComplete.listen((event) {
+        _playBackgroundMusic();
+      });
+    } catch (e) {
+      debugPrint('Error playing intro: $e');
+      // If intro fails, try playing background music directly
+      _playBackgroundMusic();
+    }
   }
 
   Future<void> _playBackgroundMusic() async {
     try {
       await _audioPlayer.play(AssetSource('soundbg/Enjoy.mp3'));
-      setState(() => _isMusicPlaying = true);
+      if (mounted) {
+        setState(() => _isMusicPlaying = true);
+      }
     } catch (e) {
       debugPrint('Error playing music: $e');
     }
@@ -77,6 +106,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
+    _introPlayer.dispose();
     _audioPlayer.dispose();
     super.dispose();
   }
@@ -86,35 +116,22 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       body: Stack(
         children: [
-          // Background gradient
-          Positioned(
-            top: 0,
-            right: 0,
-            width: MediaQuery.of(context).size.width,
-            height: MediaQuery.of(context).size.height * 0.6,
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topRight,
-                  end: Alignment.bottomLeft,
-                  colors: [
-                    const Color(0xFFFFF7DB).withOpacity(0.4),
-                    Colors.transparent,
-                  ],
-                  stops: const [0.0, 0.6],
-                ),
-              ),
+          // Background SVG
+          Positioned.fill(
+            child: SvgPicture.asset(
+              'assets/images/bghomescreen.svg',
+              fit: BoxFit.cover,
             ),
           ),
           SafeArea(
             child: Column(
               children: [
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
                   child: Column(
                     children: [
                       _buildTopSection(),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 10),
                       _buildChatBubbles(),
                     ],
                   ),
@@ -197,49 +214,47 @@ class _HomeScreenState extends State<HomeScreen> {
     return Row(
       children: [
         Container(
-          width: 20,
-          height: 20,
+          width: 28,
+          height: 28,
           decoration: BoxDecoration(
             color: color,
             shape: BoxShape.circle,
             boxShadow: [
               BoxShadow(
                 color: color.withOpacity(0.3),
-                blurRadius: 3,
-                offset: const Offset(0, 1),
+                blurRadius: 4,
+                offset: const Offset(0, 2),
               ),
             ],
           ),
           child: Center(
             child: SvgPicture.asset(
               iconPath,
-              width: 10,
-              height: 10,
+              width: 16,
+              height: 16,
               color: Colors.white,
             ),
           ),
         ),
-        const SizedBox(width: 8),
-        // Label outside the bar
+        const SizedBox(width: 10),
         SizedBox(
-          width: 50,
+          width: 40,
           child: Text(
             label,
             style: TextStyle(
-              fontSize: 10,
+              fontSize: 12,
               fontWeight: FontWeight.bold,
               color: color,
             ),
           ),
         ),
-        const SizedBox(width: 6),
-        // Progress bar
+        const SizedBox(width: 5),
         Expanded(
           child: Container(
-            height: 8,
+            height: 12,
             decoration: BoxDecoration(
               color: Colors.white.withOpacity(0.4),
-              borderRadius: BorderRadius.circular(4),
+              borderRadius: BorderRadius.circular(6),
             ),
             child: FractionallySizedBox(
               alignment: Alignment.centerLeft,
@@ -247,7 +262,7 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Container(
                 decoration: BoxDecoration(
                   color: color,
-                  borderRadius: BorderRadius.circular(4),
+                  borderRadius: BorderRadius.circular(6),
                 ),
               ),
             ),
@@ -266,14 +281,14 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             SvgPicture.asset(
               'assets/images/icon_tempereture.svg',
-              width: 20,
-              height: 20,
+              width: 24,
+              height: 24,
             ),
-            const SizedBox(width: 6),
+            const SizedBox(width: 8),
             Text(
               '${mqtt.airTemperature.toStringAsFixed(0)}°, ${mqtt.waterTemperature.toStringAsFixed(0)}°, ${mqtt.airHumidity.toStringAsFixed(0)}%',
               style: const TextStyle(
-                fontSize: 14,
+                fontSize: 16,
                 fontWeight: FontWeight.bold,
                 color: Color(0xFF29ABFF),
                 letterSpacing: -0.3,
@@ -281,37 +296,37 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ],
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 8),
         // LDR & Flow row
         Row(
           children: [
             SvgPicture.asset(
               'assets/images/icon_sun.svg',
-              width: 16,
-              height: 16,
+              width: 20,
+              height: 20,
               color: const Color(0xFFFFA000),
             ),
-            const SizedBox(width: 4),
+            const SizedBox(width: 6),
             Text(
               '${mqtt.ldr}',
               style: const TextStyle(
-                fontSize: 12,
+                fontSize: 14,
                 fontWeight: FontWeight.w600,
                 color: Color(0xFFFFA000),
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 16),
             SvgPicture.asset(
               'assets/images/icon_water.svg',
-              width: 16,
-              height: 16,
+              width: 20,
+              height: 20,
               color: const Color(0xFF00BCD4),
             ),
-            const SizedBox(width: 4),
+            const SizedBox(width: 6),
             Text(
               '${mqtt.flow.toStringAsFixed(1)} L/m',
               style: const TextStyle(
-                fontSize: 12,
+                fontSize: 14,
                 fontWeight: FontWeight.w600,
                 color: Color(0xFF00BCD4),
               ),
@@ -325,35 +340,22 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildActionButtons() {
     return Column(
       children: [
-        const SizedBox(height: 10),
-        // First row
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _buildActionButton(
-              'assets/images/icon_setting.svg',
-              () => Navigator.pushNamed(context, '/settings'),
-            ),
-            const SizedBox(width: 10),
-            _buildActionButton(
-              'assets/images/icon_log.svg',
-              () => Navigator.pushNamed(context, '/log'),
-            ),
-          ],
+        _buildActionButton(
+          'assets/images/icon_setting.svg',
+          () => Navigator.pushNamed(context, '/settings'),
         ),
-        const SizedBox(height: 10),
-        // Second row
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _buildActionButton(
-              'assets/images/icon_camera.svg',
-              () => Navigator.pushNamed(context, '/monitoring'),
-            ),
-            const SizedBox(width: 10),
-            _buildMusicButton(),
-          ],
+        const SizedBox(height: 8),
+        _buildActionButton(
+          'assets/images/icon_log.svg',
+          () => Navigator.pushNamed(context, '/log'),
         ),
+        const SizedBox(height: 8),
+        _buildActionButton(
+          'assets/images/icon_camera.svg',
+          () => Navigator.pushNamed(context, '/monitoring'),
+        ),
+        const SizedBox(height: 8),
+        _buildMusicButton(),
       ],
     );
   }
@@ -362,15 +364,15 @@ class _HomeScreenState extends State<HomeScreen> {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 48,
-        height: 48,
+        width: 40,
+        height: 40,
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(10),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.1),
-              blurRadius: 8,
+              blurRadius: 6,
               offset: const Offset(0, 2),
             ),
           ],
@@ -378,8 +380,37 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Center(
           child: SvgPicture.asset(
             iconPath,
-            width: 24,
-            height: 24,
+            width: 20,
+            height: 20,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActionButtonWithIcon(
+      IconData icon, Color color, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 48,
+        height: 48,
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: color.withOpacity(0.3),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Center(
+          child: Icon(
+            icon,
+            size: 24,
+            color: Colors.white,
           ),
         ),
       ),
@@ -390,15 +421,15 @@ class _HomeScreenState extends State<HomeScreen> {
     return GestureDetector(
       onTap: _toggleMusic,
       child: Container(
-        width: 48,
-        height: 48,
+        width: 40,
+        height: 40,
         decoration: BoxDecoration(
           color: _isMusicPlaying ? const Color(0xFF29ABFF) : Colors.white,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(10),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.1),
-              blurRadius: 8,
+              blurRadius: 6,
               offset: const Offset(0, 2),
             ),
           ],
@@ -406,7 +437,7 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Center(
           child: Icon(
             _isMusicPlaying ? Icons.music_note : Icons.music_off,
-            size: 24,
+            size: 20,
             color: _isMusicPlaying ? Colors.white : Colors.grey,
           ),
         ),
@@ -628,14 +659,14 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildMascotSection() {
     return Consumer<MascotService>(
       builder: (context, mascot, _) {
-        return Container(
+        return SizedBox(
           width: double.infinity,
           height: double.infinity,
           child: LayoutBuilder(
             builder: (context, constraints) {
               final size = constraints.maxHeight;
               return Transform.translate(
-                offset: const Offset(0, -60), // Geser ke atas 60 pixels
+                offset: const Offset(0, -100),
                 child: Align(
                   alignment: Alignment.center,
                   child: TumuMascot(

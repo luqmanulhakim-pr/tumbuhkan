@@ -21,8 +21,8 @@ class AppSettings {
   // Default settings
   factory AppSettings.defaultSettings() {
     return AppSettings(
-      flaskIpAddress: '192.168.2.80',
-      flaskPort: 5000,
+      flaskIpAddress: '192.168.10.54',
+      flaskPort: 8000,
       esp32CamIpAddress: '192.168.43.100',
       esp32CamPort: 80,
       useEsp32CamForStream: true,
@@ -69,8 +69,8 @@ class AppSettings {
 
   factory AppSettings.fromJson(Map<String, dynamic> json) {
     return AppSettings(
-      flaskIpAddress: json['flaskIpAddress'] ?? '192.168.2.80',
-      flaskPort: json['flaskPort'] ?? 5000,
+      flaskIpAddress: json['flaskIpAddress'] ?? '192.168.10.54',
+      flaskPort: json['flaskPort'] ?? 8000,
       esp32CamIpAddress: json['esp32CamIpAddress'] ?? '192.168.43.100',
       esp32CamPort: json['esp32CamPort'] ?? 80,
       useEsp32CamForStream: json['useEsp32CamForStream'] ?? true,

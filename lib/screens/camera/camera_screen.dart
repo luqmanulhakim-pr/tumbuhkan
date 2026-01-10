@@ -4,6 +4,8 @@ import 'package:camera/camera.dart';
 import 'package:provider/provider.dart';
 import '../../services/camera_service.dart';
 import '../../services/settings_service.dart';
+import '../../models/disease_detection_result.dart';
+import 'detection_result_screen.dart';
 
 class CameraScreen extends StatefulWidget {
   const CameraScreen({super.key});
@@ -104,18 +106,9 @@ class _CameraScreenState extends State<CameraScreen> {
       final settingsService =
           Provider.of<SettingsService>(context, listen: false);
 
-      // 🆕 Debug print dengan info lebih detail
       debugPrint('═══════════════════════════════════════');
-      debugPrint('📸 [CAMERA SCREEN] Capture & Upload Started');
-      debugPrint('🖥️  Flask Backend Settings:');
-      debugPrint('   • IP: ${settingsService.flaskIpAddress}');
-      debugPrint('   • Port: ${settingsService.flaskPort}');
-      debugPrint('   • Base URL: ${settingsService.flaskBaseUrl}');
-      debugPrint('   • Upload URL: ${settingsService.flaskUploadUrl}');
-      debugPrint(
-          '📹 Stream Source: ${settingsService.useEsp32CamForStream ? "ESP32-CAM" : "Flask Webcam"}');
-      debugPrint(
-          '   (Upload always goes to Flask, regardless of stream source)');
+      debugPrint('📸 [CAMERA SCREEN] Capture & Disease Detection Started');
+      debugPrint('🖥️  Flask Backend: ${settingsService.flaskBaseUrl}');
       debugPrint('═══════════════════════════════════════');
 
       final baseUrl = settingsService.flaskBaseUrl;
@@ -126,8 +119,8 @@ class _CameraScreenState extends State<CameraScreen> {
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Row(
+        SnackBar(
+          content: const Row(
             children: [
               SizedBox(
                 width: 20,
@@ -138,59 +131,47 @@ class _CameraScreenState extends State<CameraScreen> {
                 ),
               ),
               SizedBox(width: 12),
-              Text('Uploading to Flask server...'),
+              Text('Menganalisis penyakit tanaman...'),
             ],
           ),
-          duration: Duration(seconds: 2),
-          backgroundColor: Color(0xFF1976D2),
+          duration: const Duration(seconds: 30),
+          backgroundColor: const Color(0xFF29ABFF),
           behavior: SnackBarBehavior.floating,
         ),
       );
 
-      debugPrint('📤 Uploading to: $baseUrl/upload');
-      final result = await CameraService.uploadImage(image.path, baseUrl);
-      debugPrint('📩 Server response: $result');
+      debugPrint(
+          '🔬 Detecting disease via: $baseUrl/api/v1/prediction/disease/detect');
+      final result = await CameraService.detectDisease(image.path, baseUrl);
+      debugPrint('📩 Detection response received');
 
       if (!mounted) return;
 
-      if (result['success']) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.check_circle, color: Colors.white, size: 20),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Text(
-                        '✅ Upload Successful!',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 13,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        result['data']?['message'] ?? 'Image uploaded to Flask',
-                        style: const TextStyle(fontSize: 11),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+      // Hide the loading snackbar
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+
+      if (result['success'] && result['data'] != null) {
+        final detectionResult = DiseaseDetectionResult.fromJson(result['data']);
+
+        debugPrint('✅ Detection successful:');
+        debugPrint('   Disease: ${detectionResult.diseaseClass}');
+        debugPrint('   Confidence: ${detectionResult.confidencePercent}');
+
+        // Navigate to result screen
+        if (mounted) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) =>
+                  DetectionResultScreen(result: detectionResult),
             ),
-            backgroundColor: Colors.green,
-            duration: const Duration(seconds: 3),
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-            ),
-          ),
-        );
+          );
+        }
       } else {
+        final errorResult = DiseaseDetectionResult.error(
+          result['error'] ?? 'Detection failed',
+        );
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Row(
@@ -198,23 +179,9 @@ class _CameraScreenState extends State<CameraScreen> {
                 const Icon(Icons.error, color: Colors.white, size: 20),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Text(
-                        '❌ Upload Failed',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 13,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        result['error'] ?? 'Unknown error',
-                        style: const TextStyle(fontSize: 11),
-                      ),
-                    ],
+                  child: Text(
+                    'Gagal: ${errorResult.errorMessage}',
+                    style: const TextStyle(fontSize: 12),
                   ),
                 ),
               ],
@@ -231,11 +198,12 @@ class _CameraScreenState extends State<CameraScreen> {
 
       debugPrint('═══════════════════════════════════════\n');
     } catch (e) {
-      debugPrint('🔴 Exception during upload: $e');
+      debugPrint('🔴 Exception during detection: $e');
       debugPrint('═══════════════════════════════════════\n');
 
       if (!mounted) return;
 
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Row(

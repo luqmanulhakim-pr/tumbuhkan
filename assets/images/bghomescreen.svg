@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Layer_2" data-name="Layer 2" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1445.7 2962.7">
+  <defs>
+    <linearGradient id="linear-gradient" x1="98.42" y1="2500.85" x2="1364.3" y2="434.06" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fff" stop-opacity="0"/>
+      <stop offset="1" stop-color="#29abe2" stop-opacity=".3"/>
+    </linearGradient>
+    <linearGradient id="linear-gradient-2" x1="573.32" y1="2349.91" x2="1389.29" y2="1017.7" gradientTransform="translate(177.03 -108.37) rotate(6.38)" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fff" stop-opacity="0"/>
+      <stop offset="1" stop-color="#fceebb"/>
+    </linearGradient>
+  </defs>
+  <g id="background">
+    <rect x="8.35" y="1.35" width="1436" height="2960" style="fill: #f2f2f2; stroke: #f2f2f2; stroke-miterlimit: 10; stroke-width: 2.69px;"/>
+    <rect x="1.35" y="1.35" width="1443" height="2960" style="fill: url(#linear-gradient); stroke: #f2f2f2; stroke-miterlimit: 10; stroke-width: 2.7px;"/>
+    <rect x="3.85" y="2296.85" width="1439" height="662" style="fill: #e6e6e6;"/>
+  </g>
+  <g id="pipa">
+    <g id="light">
+      <polygon points="21.85 2070.85 705.97 2823.93 1441.85 1096.85 1440.19 718.49 21.85 2070.85" style="fill: url(#linear-gradient-2);"/>
+    </g>
+  </g>
+</svg>

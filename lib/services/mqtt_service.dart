@@ -7,13 +7,8 @@ import '../config/constants.dart';
 import 'mqtt_connection_state.dart';
 import 'mascot_service.dart';
 
-// ============================================
-// Properties (✅ UPDATED - Add new fields)
-// ============================================
+/// MQTT Service for managing broker connection and sensor data.
 class MqttService extends ChangeNotifier {
-  // ============================================
-  // Properties
-  // ============================================
   late MqttServerClient client;
   AppMqttConnectionState _connectionState = AppMqttConnectionState.disconnected;
 
@@ -26,12 +21,10 @@ class MqttService extends ChangeNotifier {
   double _ldrValue = 0.0;
   double _waterTemperature = 0.0;
   double _waterLevel = 0.0;
-
-  // ✅ NEW: Add pH voltage field
   double _phVoltage = 0.0;
   double _tdsVoltage = 0.0;
 
-  // ✅ NEW: Label fields from backend
+  // Labels
   String _phLabel = 'Unknown';
   String _tdsLabel = 'Unknown';
   String _ambientLabel = 'Unknown';
@@ -51,27 +44,23 @@ class MqttService extends ChangeNotifier {
   int _reconnectAttempts = 0;
   DateTime _lastMessageTime = DateTime.now();
   Timer? _heartbeatTimer;
-
-  // Mascot Service
   MascotService? _mascotService;
 
-  // Getters
+  // Getters - Sensor Data
   double get ph => _ph;
   double get tds => _tds;
   double get waterFlow => _waterFlow;
-  double get flow => _waterFlow; // Alias
+  double get flow => _waterFlow;
   double get airHumidity => _airHumidity;
   double get airTemperature => _airTemperature;
   double get ldrValue => _ldrValue;
-  int get ldr => _ldrValue.toInt(); // Alias
+  int get ldr => _ldrValue.toInt();
   double get waterTemperature => _waterTemperature;
   double get waterLevel => _waterLevel;
-
-  // ✅ NEW: Add voltage getters
   double get phVoltage => _phVoltage;
   double get tdsVoltage => _tdsVoltage;
 
-  // ✅ NEW Getters
+  // Getters - Labels
   String get phLabel => _phLabel;
   String get tdsLabel => _tdsLabel;
   String get ambientLabel => _ambientLabel;
@@ -79,6 +68,7 @@ class MqttService extends ChangeNotifier {
   String get status => _status;
   String get timestamp => _timestamp;
 
+  // Getters - Connection
   AppMqttConnectionState get connectionState => _connectionState;
   bool get isConnected => _connectionState == AppMqttConnectionState.connected;
   bool get isConnecting =>
@@ -89,6 +79,7 @@ class MqttService extends ChangeNotifier {
   String get lastError => _lastError;
   int get reconnectAttempts => _reconnectAttempts;
 
+  // Getters - Actuators
   bool get isPumpOn => _isPumpOn;
   bool get isGrowLightOn => _isGrowLightOn;
   bool get isPhUpPumpOn => _isPhUpPumpOn;
@@ -96,218 +87,148 @@ class MqttService extends ChangeNotifier {
   bool get isNutrientAPumpOn => _isNutrientAPumpOn;
   bool get isNutrientBPumpOn => _isNutrientBPumpOn;
 
-  // ============================================
-  // ✅ FIXED: Connect Method dengan protocol yang benar
-  // ============================================
+  /// Connects to the MQTT broker.
   Future<void> connect() async {
-    if (_connectionState == AppMqttConnectionState.connecting) {
-      debugPrint('⏳ Sudah dalam proses koneksi...');
-      return;
-    }
+    if (_connectionState == AppMqttConnectionState.connecting) return;
 
     try {
       _connectionState = AppMqttConnectionState.connecting;
       notifyListeners();
 
-      // Generate unique client ID
       final uniqueClientId =
           '${AppConstants.mqttClientId}_${DateTime.now().millisecondsSinceEpoch}';
 
       client = MqttServerClient(AppConstants.mqttBrokerUrl, uniqueClientId);
       client.port = AppConstants.mqttPort;
       client.keepAlivePeriod = AppConstants.mqttKeepAlive;
-      client.logging(on: true);
+      client.logging(on: kDebugMode);
       client.autoReconnect = true;
+      client.connectTimeoutPeriod = 10000;
 
-      // ✅ Set proper timeouts
-      client.connectTimeoutPeriod = 10000; // 10 seconds
+      debugPrint('[MQTT] Connecting to ${AppConstants.mqttBrokerUrl}...');
 
-      debugPrint('🔌 Menghubungkan ke ${AppConstants.mqttBrokerUrl}...');
-      debugPrint('   Client ID: $uniqueClientId');
-
-      // ✅ FIXED: Use proper MQTT 3.1.1 protocol
       final connMessage = MqttConnectMessage()
           .withClientIdentifier(uniqueClientId)
           .withWillTopic('tumbuhkan/status')
           .withWillMessage('Flutter client disconnected')
-          .startClean() // Clean session
+          .startClean()
           .withWillQos(MqttQos.atLeastOnce);
 
       client.connectionMessage = connMessage;
 
-      // ✅ Connect with proper error handling
-      try {
-        await client.connect();
-      } on Exception catch (e) {
-        debugPrint('❌ Connection exception: $e');
-        client.disconnect();
-        rethrow;
-      }
+      await client.connect();
 
       if (client.connectionStatus?.state == MqttConnectionState.connected) {
         _connectionState = AppMqttConnectionState.connected;
         _reconnectAttempts = 0;
-        debugPrint('✅ Terhubung ke MQTT broker');
-        debugPrint('   Return Code: ${client.connectionStatus?.returnCode}');
+        debugPrint('[MQTT] Connected successfully');
 
         _setupListener();
         await Future.delayed(const Duration(milliseconds: 500));
         _subscribeToTopics();
         _startHeartbeat();
-
         notifyListeners();
       } else {
-        throw Exception('Koneksi gagal: ${client.connectionStatus?.state}\n'
-            'Return Code: ${client.connectionStatus?.returnCode}');
+        throw Exception('Connection failed: ${client.connectionStatus?.state}');
       }
     } catch (e) {
-      _connectionState = AppMqttConnectionState.error;
-      _lastError = e.toString();
-      debugPrint('❌ Error koneksi: $e');
-      notifyListeners();
-
-      _reconnectAttempts++;
-      if (_reconnectAttempts < AppConstants.maxReconnectAttempts) {
-        debugPrint(
-            '🔄 Mencoba lagi dalam ${AppConstants.reconnectDelay.inSeconds} detik... ($_reconnectAttempts/${AppConstants.maxReconnectAttempts})');
-        Future.delayed(AppConstants.reconnectDelay, connect);
-      } else {
-        debugPrint('🚫 Batas maksimum percobaan koneksi tercapai');
-      }
+      _handleConnectionError(e);
     }
   }
 
-  // ============================================
-  // Heartbeat Checker (tidak berubah)
-  // ============================================
+  void _handleConnectionError(dynamic error) {
+    _connectionState = AppMqttConnectionState.error;
+    _lastError = error.toString();
+    debugPrint('[MQTT] Error: $error');
+    notifyListeners();
+
+    _reconnectAttempts++;
+    if (_reconnectAttempts < AppConstants.maxReconnectAttempts) {
+      debugPrint(
+          '[MQTT] Retrying in ${AppConstants.reconnectDelay.inSeconds}s...');
+      Future.delayed(AppConstants.reconnectDelay, connect);
+    }
+  }
+
   void _startHeartbeat() {
     _heartbeatTimer?.cancel();
     _heartbeatTimer = Timer.periodic(AppConstants.heartbeatInterval, (_) {
-      final now = DateTime.now();
-      final timeSinceLastMessage = now.difference(_lastMessageTime);
+      final timeSinceLastMessage = DateTime.now().difference(_lastMessageTime);
 
       if (timeSinceLastMessage > AppConstants.heartbeatTimeout) {
-        debugPrint('💔 Heartbeat timeout - mencoba reconnect...');
+        debugPrint('[MQTT] Heartbeat timeout, reconnecting...');
         _connectionState = AppMqttConnectionState.error;
-        _lastError = 'Tidak ada data dari sensor';
+        _lastError = 'No data from sensor';
         notifyListeners();
         connect();
       }
     });
   }
 
-  // Subscribe Topics (ESP32 Format)
-  // ============================================
   void _subscribeToTopics() {
-    debugPrint('📡 Berlangganan ke topic MQTT...');
-
-    // Sensor data topic
     client.subscribe(AppConstants.topicSensorData, MqttQos.atMostOnce);
-    debugPrint('  ✓ Subscribed: ${AppConstants.topicSensorData}');
-
-    // Relay status topic (single JSON topic from ESP32)
     client.subscribe(AppConstants.topicRelayStatus, MqttQos.atMostOnce);
-    debugPrint('  ✓ Subscribed: ${AppConstants.topicRelayStatus}');
-
-    debugPrint('✅ Berhasil subscribe ke semua topic');
+    debugPrint('[MQTT] Subscribed to topics');
   }
 
-  // ============================================
-  // Setup Listener (tidak berubah)
-  // ============================================
   void _setupListener() {
-    debugPrint('👂 Setting up MQTT listener...');
-
     client.updates?.listen(
       (List<MqttReceivedMessage<MqttMessage>> messages) {
-        final MqttPublishMessage message =
-            messages[0].payload as MqttPublishMessage;
-        final String topic = messages[0].topic;
-        final String payload =
+        final message = messages[0].payload as MqttPublishMessage;
+        final topic = messages[0].topic;
+        final payload =
             MqttPublishPayload.bytesToStringAsString(message.payload.message);
 
-        debugPrint('📨 Received: $topic -> $payload');
         _handleMessage(topic, payload);
       },
       onError: (error) {
-        debugPrint('❌ MQTT stream error: $error');
+        debugPrint('[MQTT] Stream error: $error');
         _connectionState = AppMqttConnectionState.error;
         _lastError = error.toString();
         notifyListeners();
       },
       onDone: () {
-        debugPrint('🔌 MQTT stream closed');
         if (_connectionState == AppMqttConnectionState.connected) {
           connect();
         }
       },
     );
-
-    debugPrint('✅ Listener setup complete');
   }
 
-  // ============================================
-  // Handle Message (ESP32 Format)
-  // ============================================
-  void _handleMessage(String topic, String value) {
+  void _handleMessage(String topic, String payload) {
     _lastMessageTime = DateTime.now();
 
     try {
       if (topic == AppConstants.topicSensorData) {
-        _handleSensorData(value);
-        return;
+        _handleSensorData(payload);
+      } else if (topic == AppConstants.topicRelayStatus) {
+        _handleRelayStatus(payload);
       }
-
-      // Handle relay status JSON from ESP32
-      // Format: {"LED":"ON","FAN":"OFF","PH_UP":"OFF","AB_MIX":"OFF","PH_DOWN":"OFF","PUMP":"OFF"}
-      if (topic == AppConstants.topicRelayStatus) {
-        _handleRelayStatus(value);
-        return;
-      }
-
-      notifyListeners();
     } catch (e) {
-      debugPrint('❌ Error parsing message: $e');
+      debugPrint('[MQTT] Parse error: $e');
     }
   }
 
-  // ============================================
-  // Handle Relay Status JSON from ESP32
-  // ============================================
   void _handleRelayStatus(String jsonString) {
     try {
-      final Map<String, dynamic> data = json.decode(jsonString);
+      final data = json.decode(jsonString) as Map<String, dynamic>;
 
       _isGrowLightOn = data[AppConstants.relayLed] == 'ON';
       _isPumpOn = data[AppConstants.relayPump] == 'ON';
       _isPhUpPumpOn = data[AppConstants.relayPhUp] == 'ON';
       _isPhDownPumpOn = data[AppConstants.relayPhDown] == 'ON';
       _isNutrientAPumpOn = data[AppConstants.relayAbMix] == 'ON';
-      _isNutrientBPumpOn =
-          data[AppConstants.relayAbMix] == 'ON'; // Same as A for AB_MIX
-
-      debugPrint('═══════════════════════════════════════');
-      debugPrint('🔌 RELAY STATUS UPDATED');
-      debugPrint('═══════════════════════════════════════');
-      debugPrint('💡 LED       : ${_isGrowLightOn ? "ON" : "OFF"}');
-      debugPrint('💧 PUMP      : ${_isPumpOn ? "ON" : "OFF"}');
-      debugPrint('⬆️  PH_UP     : ${_isPhUpPumpOn ? "ON" : "OFF"}');
-      debugPrint('⬇️  PH_DOWN   : ${_isPhDownPumpOn ? "ON" : "OFF"}');
-      debugPrint('🧪 AB_MIX    : ${_isNutrientAPumpOn ? "ON" : "OFF"}');
-      debugPrint('═══════════════════════════════════════');
+      _isNutrientBPumpOn = data[AppConstants.relayAbMix] == 'ON';
 
       notifyListeners();
     } catch (e) {
-      debugPrint('❌ Error parsing relay status: $e');
+      debugPrint('[MQTT] Relay status parse error: $e');
     }
   }
 
-  // ============================================
-  // Parse JSON Sensor Data (ESP32 Format)
-  // ============================================
   void _handleSensorData(String jsonString) {
     try {
-      final Map<String, dynamic> data = json.decode(jsonString);
+      final data = json.decode(jsonString) as Map<String, dynamic>;
 
       _ph = _parseDouble(data['ph']);
       _tds = _parseDouble(data['tds']);
@@ -317,12 +238,9 @@ class MqttService extends ChangeNotifier {
       _ldrValue = _parseDouble(data['ldr']);
       _waterLevel = _parseDouble(data['distance']);
       _waterFlow = _parseDouble(data['flow']);
-
-      // ✅ NEW: Parse voltage values
       _phVoltage = _parseDouble(data['ph_voltage']);
       _tdsVoltage = _parseDouble(data['tds_voltage']);
 
-      // Calculate labels based on values
       _phLabel = _getPhLabel(_ph);
       _tdsLabel = _getTdsLabel(_tds);
       _lightLabel = _getLightLabel(_ldrValue);
@@ -330,47 +248,27 @@ class MqttService extends ChangeNotifier {
       _status = 'Connected';
       _timestamp = DateTime.now().toIso8601String();
 
-      debugPrint('═══════════════════════════════════════');
-      debugPrint('📊 SENSOR DATA UPDATED (ESP32)');
-      debugPrint('═══════════════════════════════════════');
-      debugPrint('🧪 pH           : ${_ph.toStringAsFixed(2)} ($_phLabel)');
-      debugPrint('   pH Voltage   : ${_phVoltage.toStringAsFixed(4)}V');
-      debugPrint(
-          '💛 TDS          : ${_tds.toStringAsFixed(2)} ppm ($_tdsLabel)');
-      debugPrint('   TDS Voltage  : ${_tdsVoltage.toStringAsFixed(5)}V');
-      debugPrint('🌡️  Air Temp     : ${_airTemperature.toStringAsFixed(1)}°C');
-      debugPrint('💦 Water Temp   : ${_waterTemperature.toStringAsFixed(1)}°C');
-      debugPrint('💧 Humidity     : ${_airHumidity.toStringAsFixed(0)}%');
-      debugPrint(
-          '☀️  LDR          : ${_ldrValue.toStringAsFixed(0)} ($_lightLabel)');
-      debugPrint('📏 Distance     : ${_waterLevel.toStringAsFixed(1)} cm');
-      debugPrint('💧 Water Flow   : ${_waterFlow.toStringAsFixed(2)} L/min');
-      debugPrint('═══════════════════════════════════════');
-
-      // Notify listeners
       notifyListeners();
-
-      // Update mascot state
-      if (_mascotService != null) {
-        Future.microtask(() {
-          if (_mascotService != null) {
-            _mascotService!.updateState(
-              temperature: _airTemperature,
-              phValue: _ph,
-              nutrientLevel: _tds,
-              waterLevel: _waterLevel,
-              isConnected: _connectionState == AppMqttConnectionState.connected,
-            );
-          }
-        });
-      }
+      _updateMascotState();
     } catch (e) {
-      debugPrint('❌ [MQTT] Error parsing sensor JSON: $e');
-      debugPrint('📄 Raw payload: $jsonString');
+      debugPrint('[MQTT] Sensor data parse error: $e');
     }
   }
 
-  // Helper methods for labels
+  void _updateMascotState() {
+    if (_mascotService == null) return;
+
+    Future.microtask(() {
+      _mascotService?.updateState(
+        temperature: _airTemperature,
+        phValue: _ph,
+        nutrientLevel: _tds,
+        waterLevel: _waterLevel,
+        isConnected: isConnected,
+      );
+    });
+  }
+
   String _getPhLabel(double ph) {
     if (ph < 0) return 'Invalid';
     if (ph < 5.5) return 'Asam';
@@ -398,9 +296,6 @@ class MqttService extends ChangeNotifier {
     return 'Normal';
   }
 
-  // ============================================
-  // Helper Parse Double (tidak berubah)
-  // ============================================
   double _parseDouble(dynamic value) {
     if (value == null) return 0.0;
     if (value is double) return value;
@@ -409,43 +304,29 @@ class MqttService extends ChangeNotifier {
     return 0.0;
   }
 
-  // ============================================
-  // Publish Methods
-  // ============================================
+  /// Publishes a message to the specified topic.
   void publish(String topic, String message) {
     if (!isConnected) {
-      debugPrint('⚠️ Tidak dapat publish: Belum terhubung ke broker');
+      debugPrint('[MQTT] Cannot publish: not connected');
       return;
     }
 
     final builder = MqttClientPayloadBuilder();
     builder.addString(message);
     client.publishMessage(topic, MqttQos.atMostOnce, builder.payload!);
-    debugPrint('📤 Published: $topic = $message');
   }
 
-  // ============================================
-  // Actuator Control Methods (ESP32 JSON Format)
-  // ============================================
-
-  /// Publish relay control command to ESP32
-  /// For LED/FAN: uses state "ON"/"OFF"
-  /// For PUMP/PH_UP/PH_DOWN/AB_MIX: uses duration in ms
   void _publishRelayCommand(String relayName,
       {int? durationMs, String? state}) {
-    final Map<String, dynamic> payload = {};
+    final payload = <String, dynamic>{};
 
     if (state != null) {
-      // LED/FAN use state
       payload[relayName] = {'state': state};
     } else if (durationMs != null) {
-      // Relay pumps use duration
       payload[relayName] = {'duration': durationMs};
     }
 
-    final jsonPayload = json.encode(payload);
-    publish(AppConstants.topicRelayControl, jsonPayload);
-    debugPrint('🔌 Relay command: $jsonPayload');
+    publish(AppConstants.topicRelayControl, json.encode(payload));
   }
 
   void setPump(bool status) {
@@ -453,8 +334,6 @@ class MqttService extends ChangeNotifier {
       _publishRelayCommand(AppConstants.relayPump,
           durationMs: AppConstants.defaultRelayDuration);
     }
-    // Note: ESP32 will auto-turn off after duration.
-    // If status == false, do nothing (let timer handle it)
   }
 
   void setGrowLight(bool status) {
@@ -489,42 +368,22 @@ class MqttService extends ChangeNotifier {
     }
   }
 
-  /// Custom relay control with specific duration
   void setRelayWithDuration(String relayName, int durationMs) {
     _publishRelayCommand(relayName, durationMs: durationMs);
   }
 
-  // ============================================
-  // Camera Control Methods
-  // ============================================
-
-  /// Mengirim perintah CAPTURE untuk memicu analisis pertumbuhan tanaman
   void publishCaptureCommand() {
-    if (!isConnected) {
-      debugPrint('⚠️ Gagal mengirim perintah capture: MQTT Disconnected');
-      return;
-    }
-
+    if (!isConnected) return;
     publish(AppConstants.topicCameraCapture, 'CAPTURE');
-    debugPrint('📸 Mengirim perintah analisis pertumbuhan (CAPTURE)');
   }
 
-  /// Mengirim status kamera
   void publishCameraStatus(String status) {
     if (!isConnected) return;
     publish(AppConstants.topicCameraStatus, status);
   }
 
-  // ============================================
-  // Calibration Methods
-  // ============================================
-
-  /// Mengirim kalibrasi sensor pH dengan nilai voltase dari user
   void publishPhCalibration(double v4, double v7, double v9) {
-    if (!isConnected) {
-      debugPrint('⚠️ Gagal mengirim kalibrasi pH: MQTT Disconnected');
-      return;
-    }
+    if (!isConnected) return;
 
     final calibrationData = jsonEncode({
       'v4': double.parse(v4.toStringAsFixed(4)),
@@ -533,18 +392,10 @@ class MqttService extends ChangeNotifier {
     });
 
     publish(AppConstants.topicPhCalibration, calibrationData);
-    debugPrint('📊 Mengirim kalibrasi pH: $calibrationData');
   }
 
-  /// Mengirim kalibrasi sensor TDS dengan koefisien m dan c
-  /// Rumus: TDS = m * voltage + c
-  /// m = 500 / (V1000 - V500)
-  /// c = 500 - m * V500
   void publishTdsCalibration(double m, double c) {
-    if (!isConnected) {
-      debugPrint('⚠️ Gagal mengirim kalibrasi TDS: MQTT Disconnected');
-      return;
-    }
+    if (!isConnected) return;
 
     final calibrationData = jsonEncode({
       'm': double.parse(m.toStringAsFixed(2)),
@@ -552,16 +403,10 @@ class MqttService extends ChangeNotifier {
     });
 
     publish(AppConstants.topicTdsCalibration, calibrationData);
-    debugPrint('📊 Mengirim kalibrasi TDS: $calibrationData');
   }
 
-  // ============================================
-  // Execute Scheduled Action (tidak berubah)
-  // ============================================
   Future<void> executeScheduledAction(
       String actuatorType, int durationSeconds) async {
-    debugPrint('⏰ Executing: $actuatorType for $durationSeconds seconds');
-
     switch (actuatorType) {
       case 'pump':
         setPump(true);
@@ -605,18 +450,13 @@ class MqttService extends ChangeNotifier {
         setNutrientBPump(false);
         break;
     }
-
-    debugPrint('✅ Schedule completed: $actuatorType');
   }
 
-  // ============================================
-  // Disconnect (tidak berubah)
-  // ============================================
   void disconnect() {
     _heartbeatTimer?.cancel();
     client.disconnect();
     _connectionState = AppMqttConnectionState.disconnected;
-    debugPrint('🔌 Terputus dari MQTT broker');
+    debugPrint('[MQTT] Disconnected');
     notifyListeners();
   }
 
@@ -627,12 +467,7 @@ class MqttService extends ChangeNotifier {
     super.dispose();
   }
 
-  // ============================================
-  // ✅ FIXED: Connect Method dengan protocol yang benar
-  // ============================================
   void setMascotService(MascotService mascotService) {
     _mascotService = mascotService;
-    debugPrint('🔗 [MQTT] MascotService linked: ${mascotService.runtimeType}');
-    debugPrint('   Current state: ${mascotService.currentState.name}');
   }
 }

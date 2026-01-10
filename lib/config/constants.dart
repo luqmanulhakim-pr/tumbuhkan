@@ -51,10 +51,10 @@ class AppConstants {
   // ============================================
   // NEW: Flask Camera API
   // ============================================
-  static const String flaskBaseUrl = 'http://192.168.1.100:5000';
-  static const String flaskStreamUrl = '$flaskBaseUrl/stream';
-  static const String flaskUploadUrl = '$flaskBaseUrl/upload';
-  static const String flaskImagesUrl = '$flaskBaseUrl/images';
+  static const String flaskBaseUrl = 'http://192.168.1.97:8000';
+  // static const String flaskStreamUrl = '$flaskBaseUrl/stream';
+  // static const String flaskUploadUrl = '$flaskBaseUrl/upload';
+  // static const String flaskImagesUrl = '$flaskBaseUrl/images';
 
   // ============================================
   // Sensor Thresholds
@@ -104,7 +104,7 @@ class AppConstants {
       '$sensorLogApiBaseUrl/api/v1/sensors/history';
 
   //Chatbot
-  static const String geminiApiKey = 'AIzaSyBqWUMVZMZEa1D4HM1TwjWwqMaC-s_QveU';
+  static const String geminiApiKey = '';
   static const String geminiModel = 'gemini-2.5-flash';
   static const int geminiMaxTokens = 2048;
   static const double geminiTemperature = 0.7;
