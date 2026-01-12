@@ -6,13 +6,13 @@
 // ============================================
 // WiFi Credentials
 // ============================================
-const char* ssid = "hahh";
-const char* password = "1sampai8";
+const char* ssid = "Hikam";
+const char* password = "12345678";
 
 // ============================================
 // fastAPI Server Configuration
 // ============================================
-const char* fastAPIServerIP = "192.168.2.80";  
+const char* fastAPIServerIP = "10.119.44.142";  
 const int fastAPIServerPort = 8000;
 String uploadEndpoint = "/api/v1/prediction/growth/detect";
 

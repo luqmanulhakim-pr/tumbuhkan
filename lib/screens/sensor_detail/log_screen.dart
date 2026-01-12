@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:provider/provider.dart';
 import '../../services/log_service.dart';
+import '../../services/settings_service.dart';
 
 class LogScreen extends StatefulWidget {
   const LogScreen({super.key});
@@ -17,7 +18,13 @@ class _LogScreenState extends State<LogScreen> {
   void initState() {
     super.initState();
     _logService = LogService();
-    _logService.fetchLogs();
+
+    // Get baseUrl from SettingsService after first frame
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final settings = context.read<SettingsService>();
+      _logService.setBaseUrl(settings.flaskBaseUrl);
+      _logService.fetchLogs();
+    });
   }
 
   @override

@@ -1,80 +1,9 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
-import '../config/constants.dart';
+import '../models/sensor_log.dart';
 
-/// Model for sensor log data from PostgreSQL backend
-class SensorLog {
-  final int id;
-  final double ph;
-  final double phVoltage;
-  final double tds;
-  final double tdsVoltage;
-  final double tempAir;
-  final double tempUdara;
-  final double humidity;
-  final int ldr;
-  final double distance;
-  final double flow;
-  final String? imagePath;
-  final String? annotatedImagePath;
-  final int? growthStage;
-  final String? imageUrl;
-  final DateTime timestamp;
-
-  SensorLog({
-    required this.id,
-    required this.ph,
-    this.phVoltage = 0.0,
-    required this.tds,
-    this.tdsVoltage = 0.0,
-    required this.tempAir,
-    required this.tempUdara,
-    required this.humidity,
-    required this.ldr,
-    required this.distance,
-    required this.flow,
-    this.imagePath,
-    this.annotatedImagePath,
-    this.growthStage,
-    this.imageUrl,
-    required this.timestamp,
-  });
-
-  factory SensorLog.fromJson(Map<String, dynamic> json) {
-    return SensorLog(
-      id: json['id'] ?? 0,
-      ph: _parseDouble(json['ph']),
-      phVoltage: _parseDouble(json['ph_voltage']),
-      tds: _parseDouble(json['tds']),
-      tdsVoltage: _parseDouble(json['tds_voltage']),
-      tempAir: _parseDouble(json['temp_air']),
-      tempUdara: _parseDouble(json['temp_udara']),
-      humidity: _parseDouble(json['humidity']),
-      ldr: (json['ldr'] ?? 0) is int ? json['ldr'] : (json['ldr'] ?? 0).toInt(),
-      distance: _parseDouble(json['distance']),
-      flow: _parseDouble(json['flow']),
-      imagePath: json['image_path'],
-      annotatedImagePath: json['annotated_image_path'],
-      growthStage: json['growth_stage'],
-      imageUrl: json['image_url'],
-      timestamp:
-          DateTime.parse(json['timestamp'] ?? DateTime.now().toIso8601String()),
-    );
-  }
-
-  static double _parseDouble(dynamic value) {
-    if (value == null) return 0.0;
-    if (value is double) return value;
-    if (value is int) return value.toDouble();
-    if (value is String) return double.tryParse(value) ?? 0.0;
-    return 0.0;
-  }
-
-  // Alias for backward compatibility
-  DateTime get createdAt => timestamp;
-  double get waterLevel => distance;
-}
+export '../models/sensor_log.dart';
 
 /// Service for fetching sensor logs from FastAPI backend
 class LogService extends ChangeNotifier {
@@ -82,21 +11,34 @@ class LogService extends ChangeNotifier {
   bool _isLoading = false;
   String? _error;
   String _selectedPeriod = 'daily';
+  String _baseUrl = '';
 
   List<SensorLog> get logs => _logs;
   bool get isLoading => _isLoading;
   String? get error => _error;
   String get selectedPeriod => _selectedPeriod;
 
+  void setBaseUrl(String baseUrl) {
+    _baseUrl = baseUrl;
+  }
+
   void setPeriod(String period) {
     _selectedPeriod = period;
     fetchLogs();
   }
 
-  Future<void> fetchLogs() async {
+  Future<void> fetchLogs({String? baseUrl}) async {
     _isLoading = true;
     _error = null;
     notifyListeners();
+
+    final apiBaseUrl = baseUrl ?? _baseUrl;
+    if (apiBaseUrl.isEmpty) {
+      _error = 'API base URL not configured';
+      _isLoading = false;
+      notifyListeners();
+      return;
+    }
 
     try {
       final now = DateTime.now();
@@ -117,13 +59,10 @@ class LogService extends ChangeNotifier {
           limit = 100;
       }
 
-      final startDateStr = startDate.toIso8601String();
-      final endDateStr = now.toIso8601String();
-
-      final url = Uri.parse(AppConstants.sensorHistoryEndpoint).replace(
+      final url = Uri.parse('$apiBaseUrl/api/v1/sensors/history').replace(
         queryParameters: {
-          'start_date': startDateStr,
-          'end_date': endDateStr,
+          'start_date': startDate.toIso8601String(),
+          'end_date': now.toIso8601String(),
           'limit': limit.toString(),
           'offset': '0',
         },
@@ -145,7 +84,7 @@ class LogService extends ChangeNotifier {
         debugPrint('[LogService] Error: $_error');
       }
     } catch (e) {
-      _error = 'Connection failed: ${e.toString().split(':').last.trim()}';
+      _error = 'Connection failed';
       debugPrint('[LogService] Error: $e');
     }
 
