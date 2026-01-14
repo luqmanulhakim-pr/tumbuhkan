@@ -48,11 +48,20 @@ class _TumuMascotState extends State<TumuMascot> {
     _highLevelWaterInput = controller.findInput<bool>('High Level Water');
     _noSignalInput = controller.findInput<bool>('No Signal');
 
+    debugPrint('🌱 [TumuMascot] Rive inputs found:');
+    debugPrint('   Normal: ${_normalInput != null}');
+    debugPrint('   Unstable Ph: ${_unstablePhInput != null}');
+    debugPrint('   Low Nutrient: ${_lowNutrientInput != null}');
+
     _updateRiveState();
   }
 
   void _updateRiveState() {
-    if (_controller == null) return;
+    debugPrint('🌱 [TumuMascot] Updating Rive state to: ${widget.state}');
+    if (_controller == null) {
+      debugPrint('🌱 [TumuMascot] Controller is null!');
+      return;
+    }
 
     _normalInput?.value = false;
     _highTempInput?.value = false;
