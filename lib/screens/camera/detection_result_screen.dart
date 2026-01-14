@@ -112,6 +112,11 @@ class DetectionResultScreen extends StatelessWidget {
 
                       const SizedBox(height: 24),
 
+                      // Suggestion Card
+                      _buildSuggestionCard(),
+
+                      const SizedBox(height: 24),
+
                       // Action Buttons
                       _buildActionButtons(context),
                     ],
@@ -203,6 +208,61 @@ class DetectionResultScreen extends StatelessWidget {
         ),
       );
     }
+  }
+
+  Widget _buildSuggestionCard() {
+    final isHealthy = result.isHealthy;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isHealthy
+            ? const Color(0xFF4CAF50).withOpacity(0.1)
+            : const Color(0xFFFFF3E0),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isHealthy
+              ? const Color(0xFF4CAF50).withOpacity(0.3)
+              : const Color(0xFFFFB74D).withOpacity(0.5),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                isHealthy ? Icons.tips_and_updates : Icons.medical_services,
+                color: isHealthy
+                    ? const Color(0xFF4CAF50)
+                    : const Color(0xFFFF9800),
+                size: 22,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                isHealthy ? 'Tips Perawatan' : 'Saran Penanganan',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: isHealthy
+                      ? const Color(0xFF4CAF50)
+                      : const Color(0xFFE65100),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            result.suggestion,
+            style: TextStyle(
+              fontSize: 14,
+              height: 1.6,
+              color: Colors.grey[800],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildActionButtons(BuildContext context) {

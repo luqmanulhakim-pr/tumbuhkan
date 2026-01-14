@@ -22,6 +22,7 @@ class SettingsService extends ChangeNotifier {
   String get flaskStreamUrl => _settings.flaskStreamUrl;
   String get flaskUploadUrl => _settings.flaskUploadUrl;
   String get flaskUploadGrowthUrl => _settings.flaskUploadGrowthUrl;
+  String get esp32CamBaseUrl => _settings.esp32CamBaseUrl;
   String get esp32CamStreamUrl => _settings.esp32CamStreamUrl;
   String get streamUrl => _settings.streamUrl; // Dynamic
 

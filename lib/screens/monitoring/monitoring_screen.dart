@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_mjpeg/flutter_mjpeg.dart';
 import 'package:provider/provider.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import '../../services/mqtt_service.dart';
 import '../../services/settings_service.dart';
+import '../../models/growth_log.dart';
 
 class MonitoringScreen extends StatefulWidget {
   const MonitoringScreen({super.key});
@@ -13,6 +16,7 @@ class MonitoringScreen extends StatefulWidget {
 
 class _MonitoringScreenState extends State<MonitoringScreen> {
   bool _isStreamRunning = true;
+  bool _isAnalyzing = false;
 
   @override
   Widget build(BuildContext context) {
@@ -228,48 +232,68 @@ class _MonitoringScreenState extends State<MonitoringScreen> {
                     ),
 
                     // Capture button
-                    // Positioned(
-                    //   bottom: 16,
-                    //   child: GestureDetector(
-                    //     onTap: () => _handleCapture(context, mqtt),
-                    //     child: Container(
-                    //       padding: const EdgeInsets.symmetric(
-                    //         horizontal: 24,
-                    //         vertical: 12,
-                    //       ),
-                    //       decoration: BoxDecoration(
-                    //         color: Colors.white,
-                    //         borderRadius: BorderRadius.circular(30),
-                    //         boxShadow: [
-                    //           BoxShadow(
-                    //             color: Colors.black.withOpacity(0.3),
-                    //             blurRadius: 10,
-                    //             offset: const Offset(0, 4),
-                    //           ),
-                    //         ],
-                    //       ),
-                    //       child: const Row(
-                    //         mainAxisSize: MainAxisSize.min,
-                    //         children: [
-                    //           Icon(
-                    //             Icons.camera_alt,
-                    //             color: Color(0xFF29ABFF),
-                    //             size: 22,
-                    //           ),
-                    //           SizedBox(width: 8),
-                    //           Text(
-                    //             'Analisis',
-                    //             style: TextStyle(
-                    //               color: Color(0xFF29ABFF),
-                    //               fontWeight: FontWeight.bold,
-                    //               fontSize: 14,
-                    //             ),
-                    //           ),
-                    //         ],
-                    //       ),
-                    //     ),
-                    //   ),
-                    // ),
+                    Positioned(
+                      bottom: 16,
+                      child: GestureDetector(
+                        onTap: _isAnalyzing
+                            ? null
+                            : () => _handleGrowthDetection(context, settings),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 24,
+                            vertical: 12,
+                          ),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: _isAnalyzing
+                                  ? [Colors.grey, Colors.grey.shade600]
+                                  : [
+                                      const Color(0xFF4CAF50),
+                                      const Color(0xFF8BC34A)
+                                    ],
+                            ),
+                            borderRadius: BorderRadius.circular(30),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFF4CAF50).withOpacity(0.4),
+                                blurRadius: 10,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              _isAnalyzing
+                                  ? const SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                        color: Colors.white,
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : const Icon(
+                                      Icons.eco,
+                                      color: Colors.white,
+                                      size: 20,
+                                    ),
+                              const SizedBox(width: 8),
+                              Text(
+                                _isAnalyzing
+                                    ? 'Menganalisis...'
+                                    : 'Analisis Pertumbuhan',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -465,5 +489,239 @@ class _MonitoringScreenState extends State<MonitoringScreen> {
         ),
       );
     }
+  }
+
+  Future<void> _handleGrowthDetection(
+      BuildContext context, SettingsService settings) async {
+    if (!mounted) return;
+
+    setState(() => _isAnalyzing = true);
+
+    // Pause stream to free ESP32-CAM resources
+    final wasStreaming = _isStreamRunning;
+    if (wasStreaming) {
+      setState(() => _isStreamRunning = false);
+      await Future.delayed(const Duration(milliseconds: 500));
+      debugPrint('[Monitoring] Stream paused for capture');
+    }
+
+    try {
+      // 1. Capture image from ESP32-CAM
+      final captureUrl = '${settings.esp32CamBaseUrl}/capture';
+      debugPrint('[Monitoring] ==============================');
+      debugPrint('[Monitoring] Capture URL: $captureUrl');
+      debugPrint('[Monitoring] ==============================');
+
+      final captureResponse = await http
+          .get(
+            Uri.parse(captureUrl),
+          )
+          .timeout(const Duration(seconds: 20)); // Increased timeout
+
+      debugPrint(
+          '[Monitoring] Capture response status: ${captureResponse.statusCode}');
+
+      if (captureResponse.statusCode != 200) {
+        throw Exception('ESP32-CAM returned ${captureResponse.statusCode}');
+      }
+
+      final imageBytes = captureResponse.bodyBytes;
+      debugPrint('[Monitoring] Captured ${imageBytes.length} bytes');
+
+      // 2. Send to FastAPI for growth detection
+      final detectUrl =
+          '${settings.flaskBaseUrl}/api/v1/prediction/growth/detect';
+      debugPrint('[Monitoring] Sending to: $detectUrl');
+
+      final request = http.MultipartRequest('POST', Uri.parse(detectUrl));
+      request.files.add(http.MultipartFile.fromBytes(
+        'file',
+        imageBytes,
+        filename: 'capture_${DateTime.now().millisecondsSinceEpoch}.jpg',
+      ));
+
+      final streamedResponse =
+          await request.send().timeout(const Duration(seconds: 30));
+      final response = await http.Response.fromStream(streamedResponse);
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        debugPrint('[Monitoring] API Response: $data');
+        debugPrint('[Monitoring] Response keys: ${data.keys.toList()}');
+
+        final growthLog = GrowthLog.fromJson(data);
+        debugPrint('[Monitoring] Parsed stageName: ${growthLog.stageName}');
+        debugPrint('[Monitoring] Parsed confidence: ${growthLog.confidence}');
+
+        if (mounted) {
+          setState(() => _isAnalyzing = false);
+          _showGrowthResultDialog(context, growthLog, settings.flaskBaseUrl);
+        }
+      } else {
+        throw Exception('Server error: ${response.statusCode}');
+      }
+    } catch (e) {
+      debugPrint('[Monitoring] Error: $e');
+      if (mounted) {
+        setState(() => _isAnalyzing = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.error_outline, color: Colors.white),
+                const SizedBox(width: 10),
+                Expanded(child: Text('Error: $e')),
+              ],
+            ),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
+        );
+      }
+    } finally {
+      // Resume stream after capture
+      if (wasStreaming && mounted) {
+        await Future.delayed(const Duration(milliseconds: 300));
+        setState(() => _isStreamRunning = true);
+        debugPrint('[Monitoring] Stream resumed');
+      }
+    }
+  }
+
+  void _showGrowthResultDialog(
+      BuildContext context, GrowthLog result, String baseUrl) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 400),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Header
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(20),
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Color(0xFF4CAF50), Color(0xFF8BC34A)],
+                  ),
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                ),
+                child: Column(
+                  children: [
+                    const Icon(Icons.eco, color: Colors.white, size: 40),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Hasil Analisis Pertumbuhan',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Image
+              if (result.annotatedImageUrl != null)
+                AspectRatio(
+                  aspectRatio: 4 / 3,
+                  child: Image.network(
+                    result.annotatedImageUrl!,
+                    fit: BoxFit.cover,
+                    loadingBuilder: (context, child, loadingProgress) {
+                      if (loadingProgress == null) return child;
+                      return const Center(child: CircularProgressIndicator());
+                    },
+                    errorBuilder: (context, error, stack) => Container(
+                      color: Colors.grey[200],
+                      child: const Icon(Icons.image_not_supported, size: 48),
+                    ),
+                  ),
+                ),
+
+              // Result info
+              Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  children: [
+                    // Stage name
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF4CAF50).withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Column(
+                        children: [
+                          Text(
+                            result.stageName,
+                            style: const TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF4CAF50),
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Confidence: ${result.confidencePercent}',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    // Timestamp
+                    Text(
+                      result.formattedDate,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey[500],
+                      ),
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    // Close button
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.pop(context),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF4CAF50),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Text(
+                          'Tutup',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }

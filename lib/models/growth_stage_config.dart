@@ -27,10 +27,10 @@ class GrowthStageConfig {
       id: json['id'] ?? 0,
       stageName: json['stage_name'] ?? '',
       tdsTarget: _parseDouble(json['tds_target']),
-      tdsTolerance: _parseDouble(json['tds_tolerance']) ?? 50.0,
+      tdsTolerance: _parseDouble(json['tds_tolerance']),
       phTarget: _parseDouble(json['ph_target']),
-      phTolerance: _parseDouble(json['ph_tolerance']) ?? 0.2,
-      tempThresholdHigh: _parseDouble(json['temp_threshold_high']) ?? 30.0,
+      phTolerance: _parseDouble(json['ph_tolerance']),
+      tempThresholdHigh: _parseDouble(json['temp_threshold_high']),
       ldrThresholdDark: json['ldr_threshold_dark'] ?? 500,
       updatedAt: json['updated_at'] != null
           ? DateTime.tryParse(json['updated_at'])

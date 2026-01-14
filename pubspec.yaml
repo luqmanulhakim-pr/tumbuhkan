@@ -37,6 +37,7 @@ dependencies:
 
   # Networking
   http: ^1.2.0
+  cached_network_image: ^3.3.1
 
   flutter_mjpeg: ^2.0.4
 

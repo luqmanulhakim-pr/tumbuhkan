@@ -3,6 +3,8 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:provider/provider.dart';
 import '../../services/log_service.dart';
 import '../../services/settings_service.dart';
+import 'growth_history_tab.dart';
+import 'disease_history_tab.dart';
 
 class LogScreen extends StatefulWidget {
   const LogScreen({super.key});
@@ -11,20 +13,28 @@ class LogScreen extends StatefulWidget {
   State<LogScreen> createState() => _LogScreenState();
 }
 
-class _LogScreenState extends State<LogScreen> {
+class _LogScreenState extends State<LogScreen>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
   late LogService _logService;
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 2, vsync: this);
     _logService = LogService();
 
-    // Get baseUrl from SettingsService after first frame
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final settings = context.read<SettingsService>();
       _logService.setBaseUrl(settings.flaskBaseUrl);
       _logService.fetchLogs();
     });
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
   }
 
   @override
@@ -34,86 +44,14 @@ class _LogScreenState extends State<LogScreen> {
       child: Scaffold(
         backgroundColor: const Color(0xFFF5F7FA),
         appBar: _buildAppBar(),
-        body: Consumer<LogService>(
-          builder: (context, logService, _) {
-            if (logService.isLoading) {
-              return const Center(
-                child: CircularProgressIndicator(color: Color(0xFF29ABFF)),
-              );
-            }
-
-            return SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildPeriodSelector(logService),
-                  if (logService.error != null)
-                    _buildErrorBanner(logService.error!),
-                  _buildChartCard(
-                    title: 'pH Level',
-                    data: logService.getChartData('ph'),
-                    logs: logService.logs,
-                    color: const Color(0xFF9C27B0),
-                    unit: '',
-                    minY: 0,
-                    maxY: 14,
-                  ),
-                  const SizedBox(height: 16),
-                  _buildChartCard(
-                    title: 'TDS (Nutrisi)',
-                    data: logService.getChartData('tds'),
-                    logs: logService.logs,
-                    color: const Color(0xFFFFC107),
-                    unit: 'ppm',
-                    minY: 0,
-                    maxY: 2000,
-                  ),
-                  const SizedBox(height: 16),
-                  _buildChartCard(
-                    title: 'Suhu Air',
-                    data: logService.getChartData('temp_air'),
-                    logs: logService.logs,
-                    color: const Color(0xFF29ABFF),
-                    unit: '°C',
-                    minY: 15,
-                    maxY: 35,
-                  ),
-                  const SizedBox(height: 16),
-                  _buildChartCard(
-                    title: 'Suhu Udara',
-                    data: logService.getChartData('temp_udara'),
-                    logs: logService.logs,
-                    color: const Color(0xFFFF5722),
-                    unit: '°C',
-                    minY: 15,
-                    maxY: 40,
-                  ),
-                  const SizedBox(height: 16),
-                  _buildChartCard(
-                    title: 'Kelembaban',
-                    data: logService.getChartData('humidity'),
-                    logs: logService.logs,
-                    color: const Color(0xFF00BCD4),
-                    unit: '%',
-                    minY: 0,
-                    maxY: 100,
-                  ),
-                  const SizedBox(height: 16),
-                  _buildChartCard(
-                    title: 'Intensitas Cahaya',
-                    data: logService.getChartData('ldr'),
-                    logs: logService.logs,
-                    color: const Color(0xFF4CAF50),
-                    unit: 'lux',
-                    minY: 0,
-                    maxY: 4000,
-                  ),
-                  const SizedBox(height: 24),
-                ],
-              ),
-            );
-          },
+        body: TabBarView(
+          controller: _tabController,
+          children: [
+            // Tab 1: Sensor Data Charts
+            _buildSensorDataTab(),
+            // Tab 2: Detection History (Growth & Disease)
+            const _DetectionTabsView(),
+          ],
         ),
       ),
     );
@@ -128,7 +66,7 @@ class _LogScreenState extends State<LogScreen> {
         onPressed: () => Navigator.pop(context),
       ),
       title: const Text(
-        'Sensor Log',
+        'Data Log',
         style: TextStyle(
           color: Colors.white,
           fontWeight: FontWeight.bold,
@@ -141,6 +79,108 @@ class _LogScreenState extends State<LogScreen> {
           onPressed: () => _logService.fetchLogs(),
         ),
       ],
+      bottom: TabBar(
+        controller: _tabController,
+        indicatorColor: Colors.white,
+        indicatorWeight: 3,
+        labelStyle: const TextStyle(fontWeight: FontWeight.bold),
+        unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.normal),
+        tabs: const [
+          Tab(
+            icon: Icon(Icons.analytics_outlined, size: 20),
+            text: 'Sensor',
+          ),
+          Tab(
+            icon: Icon(Icons.eco_outlined, size: 20),
+            text: 'Deteksi',
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSensorDataTab() {
+    return Consumer<LogService>(
+      builder: (context, logService, _) {
+        if (logService.isLoading) {
+          return const Center(
+            child: CircularProgressIndicator(color: Color(0xFF29ABFF)),
+          );
+        }
+
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildPeriodSelector(logService),
+              if (logService.error != null)
+                _buildErrorBanner(logService.error!),
+              const SizedBox(height: 16),
+              _buildChartCard(
+                title: 'pH Level',
+                data: logService.getChartData('ph'),
+                logs: logService.logs,
+                color: const Color(0xFF9C27B0),
+                unit: '',
+                minY: 0,
+                maxY: 14,
+              ),
+              const SizedBox(height: 16),
+              _buildChartCard(
+                title: 'TDS (Nutrisi)',
+                data: logService.getChartData('tds'),
+                logs: logService.logs,
+                color: const Color(0xFFFFC107),
+                unit: 'ppm',
+                minY: 0,
+                maxY: 2000,
+              ),
+              const SizedBox(height: 16),
+              _buildChartCard(
+                title: 'Suhu Air',
+                data: logService.getChartData('temp_air'),
+                logs: logService.logs,
+                color: const Color(0xFF29ABFF),
+                unit: '°C',
+                minY: 15,
+                maxY: 35,
+              ),
+              const SizedBox(height: 16),
+              _buildChartCard(
+                title: 'Suhu Udara',
+                data: logService.getChartData('temp_udara'),
+                logs: logService.logs,
+                color: const Color(0xFFFF5722),
+                unit: '°C',
+                minY: 15,
+                maxY: 40,
+              ),
+              const SizedBox(height: 16),
+              _buildChartCard(
+                title: 'Kelembaban',
+                data: logService.getChartData('humidity'),
+                logs: logService.logs,
+                color: const Color(0xFF00BCD4),
+                unit: '%',
+                minY: 0,
+                maxY: 100,
+              ),
+              const SizedBox(height: 16),
+              _buildChartCard(
+                title: 'Intensitas Cahaya',
+                data: logService.getChartData('ldr'),
+                logs: logService.logs,
+                color: const Color(0xFF4CAF50),
+                unit: 'lux',
+                minY: 0,
+                maxY: 4000,
+              ),
+              const SizedBox(height: 24),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -244,7 +284,6 @@ class _LogScreenState extends State<LogScreen> {
       );
     }
 
-    // Calculate stats
     final avg = data.reduce((a, b) => a + b) / data.length;
     final min = data.reduce((a, b) => a < b ? a : b);
     final max = data.reduce((a, b) => a > b ? a : b);
@@ -369,7 +408,7 @@ class _LogScreenState extends State<LogScreen> {
                         final index = spot.x.toInt();
                         String timestamp = '';
                         if (index >= 0 && index < logs.length) {
-                          final dt = logs[index].createdAt;
+                          final dt = logs[index].timestamp;
                           timestamp =
                               '${dt.day}/${dt.month} ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
                         }
@@ -408,6 +447,82 @@ class _LogScreenState extends State<LogScreen> {
           fontWeight: FontWeight.w500,
         ),
       ),
+    );
+  }
+}
+
+/// Nested tabs for Detection (Growth & Disease)
+class _DetectionTabsView extends StatefulWidget {
+  const _DetectionTabsView();
+
+  @override
+  State<_DetectionTabsView> createState() => _DetectionTabsViewState();
+}
+
+class _DetectionTabsViewState extends State<_DetectionTabsView>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        // Sub-tabs for Growth and Disease
+        Container(
+          color: Colors.white,
+          child: TabBar(
+            controller: _tabController,
+            labelColor: const Color(0xFF29ABFF),
+            unselectedLabelColor: Colors.grey,
+            indicatorColor: const Color(0xFF29ABFF),
+            indicatorWeight: 2,
+            tabs: const [
+              Tab(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.eco, size: 18),
+                    SizedBox(width: 6),
+                    Text('Pertumbuhan', style: TextStyle(fontSize: 13)),
+                  ],
+                ),
+              ),
+              Tab(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.local_hospital, size: 18),
+                    SizedBox(width: 6),
+                    Text('Penyakit', style: TextStyle(fontSize: 13)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        // Tab content
+        Expanded(
+          child: TabBarView(
+            controller: _tabController,
+            children: const [
+              GrowthHistoryTab(),
+              DiseaseHistoryTab(),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

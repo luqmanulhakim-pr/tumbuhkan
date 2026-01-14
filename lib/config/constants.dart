@@ -88,8 +88,8 @@ class AppConstants {
   // static const String apiBatchUpload = '/api/sensors/batch';
 
   //Camera (ESP32-CAM)
-  static const String cameraStreamUrl = 'http://10.119.44.238/stream';
-  static const String cameraPost = 'http://10.119.44.238';
+  static const String cameraStreamUrl = 'http://192.168.1.6/stream';
+  static const String cameraPost = 'http://192.168.1.6';
 
   static const String plantHeight = '15.4 cm';
   static const String plantLeafCount = '12 Helai';
@@ -99,7 +99,7 @@ class AppConstants {
   // ============================================
   // Sensor Log API
   // ============================================
-  static const String sensorLogApiBaseUrl = 'http://10.119.44.142:8000';
+  static const String sensorLogApiBaseUrl = 'http://192.168.1.193:8000';
   static const String sensorHistoryEndpoint =
       '$sensorLogApiBaseUrl/api/v1/sensors/history';
 

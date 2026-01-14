@@ -6,21 +6,21 @@
 // ============================================
 // WiFi Credentials
 // ============================================
-const char* ssid = "Hikam";
-const char* password = "12345678";
+const char* ssid = "ICT-LAB WORKSPACE";
+const char* password = "ICTLAB2024";
 
 // ============================================
 // fastAPI Server Configuration
 // ============================================
-const char* fastAPIServerIP = "10.119.44.142";  
+const char* fastAPIServerIP = "192.168.1.158";  
 const int fastAPIServerPort = 8000;
 String uploadEndpoint = "/api/v1/prediction/growth/detect";
 
 // ============================================
 // Upload Interval
 // ============================================
-const unsigned long UPLOAD_INTERVAL = 60000; // 1 menit (testing)
-// const unsigned long UPLOAD_INTERVAL = 43200000; // 12 jam (production)
+// const unsigned long UPLOAD_INTERVAL = 60000; // 1 menit (testing)
+const unsigned long UPLOAD_INTERVAL = 86400000; // 24 jam (production)
 unsigned long lastUploadTime = 0;
 
 // ============================================
@@ -78,12 +78,15 @@ void setup() {
   // Initialize Camera
   initCamera();
 
-  // Setup endpoint /stream
+  // Setup endpoints
   server.on("/stream", HTTP_GET, handleStream);
+  server.on("/capture", HTTP_GET, handleCapture);
+  server.on("/status", HTTP_GET, handleStatus);
   server.begin();
   
   Serial.println("\n✅ ESP32-CAM Ready!");
   Serial.println("📹 Stream: http://" + WiFi.localIP().toString() + "/stream");
+  Serial.println("📷 Capture: http://" + WiFi.localIP().toString() + "/capture");
   Serial.println("⏰ Auto-upload: Every 1 minute");
   Serial.println("═══════════════════════════════════\n");
 }
@@ -295,7 +298,7 @@ void uploadPhotoTofastAPI() {
   http.addHeader("Content-Type", "multipart/form-data; boundary=" + boundary);
 
   String body = "--" + boundary + "\r\n";
-  body += "Content-Disposition: form-data; name=\"image\"; filename=\"growth.jpg\"\r\n";
+  body += "Content-Disposition: form-data; name=\"file\"; filename=\"growth.jpg\"\r\n";
   body += "Content-Type: image/jpeg\r\n\r\n";
 
   String footer = "\r\n--" + boundary + "--\r\n";
@@ -333,4 +336,53 @@ void uploadPhotoTofastAPI() {
   
   Serial.printf("📊 Total uploads: %d\n", uploadCount);
   Serial.println("═══════════════════════════════════\n");
+}
+
+// ============================================
+// HANDLE /capture - Single Image Capture
+// ============================================
+void handleCapture() {
+  if (!cameraInitialized) {
+    server.send(500, "text/plain", "Camera not initialized");
+    return;
+  }
+
+  Serial.println("📷 Capture request received");
+
+  // Capture photo
+  camera_fb_t* fb = esp_camera_fb_get();
+  if (!fb) {
+    Serial.println("❌ Capture failed");
+    server.send(500, "text/plain", "Capture failed");
+    return;
+  }
+
+  Serial.printf("✅ Captured %d bytes\n", fb->len);
+
+  // Send JPEG response
+  server.sendHeader("Content-Type", "image/jpeg");
+  server.sendHeader("Content-Disposition", "inline; filename=capture.jpg");
+  server.sendHeader("Access-Control-Allow-Origin", "*");
+  server.send_P(200, "image/jpeg", (const char*)fb->buf, fb->len);
+
+  esp_camera_fb_return(fb);
+  Serial.println("📤 Image sent to client");
+}
+
+// ============================================
+// HANDLE /status - ESP32-CAM Status
+// ============================================
+void handleStatus() {
+  String json = "{";
+  json += "\"status\":\"ok\",";
+  json += "\"camera\":" + String(cameraInitialized ? "true" : "false") + ",";
+  json += "\"wifi\":\"" + String(WiFi.status() == WL_CONNECTED ? "connected" : "disconnected") + "\",";
+  json += "\"ip\":\"" + WiFi.localIP().toString() + "\",";
+  json += "\"rssi\":" + String(WiFi.RSSI()) + ",";
+  json += "\"uploads\":" + String(uploadCount) + ",";
+  json += "\"uptime\":" + String(millis() / 1000);
+  json += "}";
+
+  server.sendHeader("Access-Control-Allow-Origin", "*");
+  server.send(200, "application/json", json);
 }

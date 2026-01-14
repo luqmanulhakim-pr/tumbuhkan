@@ -3,8 +3,12 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 import 'package:audioplayers/audioplayers.dart';
 import '../../models/mascot_state.dart';
+import '../../models/growth_log.dart';
+import '../../models/growth_stage_config.dart';
 import '../../services/mqtt_service.dart';
 import '../../services/mascot_service.dart';
+import '../../services/growth_service.dart';
+import '../../services/settings_service.dart';
 import '../../widgets/home/tumu_mascot.dart';
 import '../../widgets/chatbot_fab.dart';
 
@@ -19,6 +23,10 @@ class _HomeScreenState extends State<HomeScreen> {
   late AudioPlayer _audioPlayer;
   late AudioPlayer _introPlayer;
   bool _isMusicPlaying = false;
+
+  // Growth stage
+  final GrowthService _growthService = GrowthService();
+  GrowthLog? _latestGrowth;
 
   @override
   void initState() {
@@ -48,7 +56,21 @@ class _HomeScreenState extends State<HomeScreen> {
           );
         }
       });
+
+      // Fetch latest growth stage
+      final settings = context.read<SettingsService>();
+      _growthService.setBaseUrl(settings.flaskBaseUrl);
+      _fetchLatestGrowth();
     });
+  }
+
+  Future<void> _fetchLatestGrowth() async {
+    await _growthService.fetchLatestGrowth();
+    if (mounted && _growthService.latestGrowth != null) {
+      setState(() {
+        _latestGrowth = _growthService.latestGrowth;
+      });
+    }
   }
 
   void _initAudioPlayer() {
@@ -132,7 +154,14 @@ class _HomeScreenState extends State<HomeScreen> {
                     children: [
                       _buildTopSection(),
                       const SizedBox(height: 10),
-                      _buildChatBubbles(),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(child: _buildChatBubbles()),
+                          if (_latestGrowth != null) const SizedBox(width: 8),
+                          if (_latestGrowth != null) _buildThresholdCard(),
+                        ],
+                      ),
                     ],
                   ),
                 ),
@@ -192,7 +221,7 @@ class _HomeScreenState extends State<HomeScreen> {
               label: '${mqtt.tds.toStringAsFixed(0)} ppm',
               value: mqtt.tds,
               maxValue: 2000,
-              color: const Color(0xFFFCEE21),
+              color: const Color.fromARGB(255, 73, 62, 169),
             ),
             const SizedBox(height: 10),
             _buildTemperatureInfo(mqtt),
@@ -356,6 +385,126 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         const SizedBox(height: 8),
         _buildMusicButton(),
+      ],
+    );
+  }
+
+  /// Get current stage config based on detected growth stage
+  GrowthStageConfig? _getCurrentStageConfig() {
+    if (_latestGrowth == null) return null;
+
+    final stageName = _latestGrowth!.stageName;
+    // Match stage name to config
+    for (final config in GrowthStageConfig.defaultConfigs) {
+      if (stageName.contains(config.stageName.split(':').last.trim())) {
+        return config;
+      }
+      // Check for stage number match (Stage 01, Stage 02, etc.)
+      if (stageName.contains('01') && config.stageName.contains('01'))
+        return config;
+      if (stageName.contains('02') && config.stageName.contains('02'))
+        return config;
+      if (stageName.contains('03') && config.stageName.contains('03'))
+        return config;
+      if (stageName.contains('04') && config.stageName.contains('04'))
+        return config;
+    }
+    return GrowthStageConfig.defaultConfigs.first;
+  }
+
+  Widget _buildThresholdCard() {
+    final config = _getCurrentStageConfig();
+    if (config == null) return const SizedBox.shrink();
+
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.95),
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Header
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.tune, size: 14, color: Color(0xFF4CAF50)),
+              const SizedBox(width: 4),
+              Text(
+                'Target',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey[700],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          // TDS Target
+          _buildThresholdRow(
+            icon: Icons.water_drop,
+            color: const Color(0xFF9C27B0),
+            label: 'TDS',
+            value:
+                '${config.tdsTarget.toInt()} ±${config.tdsTolerance.toInt()}',
+          ),
+          const SizedBox(height: 4),
+          // pH Target
+          _buildThresholdRow(
+            icon: Icons.science,
+            color: const Color(0xFF00A99D),
+            label: 'pH',
+            value: '${config.phTarget} ±${config.phTolerance}',
+          ),
+          const SizedBox(height: 4),
+          // Temp Max
+          _buildThresholdRow(
+            icon: Icons.thermostat,
+            color: const Color(0xFFFF5722),
+            label: 'Max',
+            value: '${config.tempThresholdHigh.toInt()}°C',
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildThresholdRow({
+    required IconData icon,
+    required Color color,
+    required String label,
+    required String value,
+  }) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 12, color: color),
+        const SizedBox(width: 4),
+        Text(
+          '$label: ',
+          style: TextStyle(
+            fontSize: 10,
+            color: Colors.grey[600],
+          ),
+        ),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.bold,
+            color: color,
+          ),
+        ),
       ],
     );
   }
@@ -665,20 +814,74 @@ class _HomeScreenState extends State<HomeScreen> {
           child: LayoutBuilder(
             builder: (context, constraints) {
               final size = constraints.maxHeight;
-              return Transform.translate(
-                offset: const Offset(0, -100),
-                child: Align(
-                  alignment: Alignment.center,
-                  child: TumuMascot(
-                    state: mascot.currentState,
-                    size: size,
+              return Stack(
+                alignment: Alignment.center,
+                children: [
+                  // Tumu Mascot
+                  Transform.translate(
+                    offset: const Offset(0, -80),
+                    child: TumuMascot(
+                      state: mascot.currentState,
+                      size: size,
+                    ),
                   ),
-                ),
+
+                  // Growth Stage Label (above Tumu)
+                  if (_latestGrowth != null)
+                    Positioned(
+                      top: 15,
+                      child: _buildGrowthStageLabel(),
+                    ),
+                ],
               );
             },
           ),
         );
       },
+    );
+  }
+
+  Widget _buildGrowthStageLabel() {
+    if (_latestGrowth == null) return const SizedBox.shrink();
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            const Color(0xFF4CAF50).withOpacity(0.9),
+            const Color(0xFF8BC34A).withOpacity(0.9),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF4CAF50).withOpacity(0.3),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(
+            Icons.eco,
+            color: Colors.white,
+            size: 18,
+          ),
+          const SizedBox(width: 6),
+          Text(
+            _latestGrowth!.stageName,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 14,
+              letterSpacing: 0.5,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
