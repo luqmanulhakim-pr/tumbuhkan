@@ -35,36 +35,53 @@ class _HomeScreenState extends State<HomeScreen> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-
-      final mqttService = context.read<MqttService>();
-      final mascotService = context.read<MascotService>();
-
-      mqttService.setMascotService(mascotService);
-
-      if (!mqttService.isConnected) {
-        mqttService.connect();
-      }
-
-      Future.delayed(const Duration(milliseconds: 1000), () {
-        if (mounted && mqttService.isConnected) {
-          mascotService.updateState(
-            temperature: mqttService.airTemperature,
-            phValue: mqttService.ph,
-            nutrientLevel: mqttService.tds,
-            waterLevel: mqttService.waterLevel,
-            isConnected: mqttService.isConnected,
-          );
-        }
-      });
-
-      // Fetch latest growth stage
-      final settings = context.read<SettingsService>();
-      _growthService.setBaseUrl(settings.flaskBaseUrl);
-      _fetchLatestGrowth();
+      _initializeServices();
     });
   }
 
+  void _initializeServices() {
+    final mqttService = context.read<MqttService>();
+    final mascotService = context.read<MascotService>();
+
+    mqttService.setMascotService(mascotService);
+
+    if (!mqttService.isConnected) {
+      mqttService.connect();
+    }
+
+    // Listen to MQTT changes for mascot updates
+    mqttService.addListener(_onMqttUpdate);
+
+    // Initial mascot update
+    _updateMascotState();
+
+    // Fetch latest growth stage
+    final settings = context.read<SettingsService>();
+    _growthService.setBaseUrl(settings.flaskBaseUrl);
+    _fetchLatestGrowth();
+  }
+
+  void _onMqttUpdate() {
+    if (!mounted) return;
+    _updateMascotState();
+  }
+
+  void _updateMascotState() {
+    final mqttService = context.read<MqttService>();
+    final mascotService = context.read<MascotService>();
+
+    mascotService.updateState(
+      temperature: mqttService.airTemperature,
+      phValue: mqttService.ph,
+      nutrientLevel: mqttService.tds,
+      waterLevel: mqttService.waterLevel,
+      isConnected: mqttService.isConnected,
+    );
+  }
+
   Future<void> _fetchLatestGrowth() async {
+    final settings = context.read<SettingsService>();
+    _growthService.setBaseUrl(settings.flaskBaseUrl);
     await _growthService.fetchLatestGrowth();
     if (mounted && _growthService.latestGrowth != null) {
       setState(() {
@@ -128,6 +145,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
+    // Remove MQTT listener
+    try {
+      final mqttService = context.read<MqttService>();
+      mqttService.removeListener(_onMqttUpdate);
+    } catch (_) {}
+
     _introPlayer.dispose();
     _audioPlayer.dispose();
     super.dispose();
@@ -371,7 +394,10 @@ class _HomeScreenState extends State<HomeScreen> {
       children: [
         _buildActionButton(
           'assets/images/icon_setting.svg',
-          () => Navigator.pushNamed(context, '/settings'),
+          () => Navigator.pushNamed(context, '/settings').then((_) {
+            // Refresh growth data after returning from settings
+            _fetchLatestGrowth();
+          }),
         ),
         const SizedBox(height: 8),
         _buildActionButton(

@@ -40,18 +40,22 @@ class MascotService extends ChangeNotifier {
 
     if (!isConnected) {
       newState = MascotState.noSignal;
+    } else if (phValue > 6.2 || phValue < 5.8) {
+      // Priority 1: pH
+      newState = MascotState.unstablePh;
+    } else if (nutrientLevel < 1100) {
+      // Priority 2: Nutrient
+      newState = MascotState.lowNutrient;
     } else if (waterLevel < 20) {
+      // Priority 3: Water Level
       newState = MascotState.lowLevelWater;
     } else if (waterLevel >= 90) {
       newState = MascotState.highLevelWater;
-    } else if (phValue < 5.5 || phValue > 7.5) {
-      newState = MascotState.unstablePh;
     } else if (temperature > 32) {
+      // Priority 4: Temperature
       newState = MascotState.highTemperature;
     } else if (temperature < 18) {
       newState = MascotState.lowTemperature;
-    } else if (nutrientLevel < 800) {
-      newState = MascotState.lowNutrient;
     } else {
       newState = MascotState.normal;
     }
